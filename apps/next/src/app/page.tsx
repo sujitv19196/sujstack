@@ -3,6 +3,7 @@
 import { useTRPC } from "@sujstack/trpc/react"
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { GENERIC_ERROR_MESSAGE } from "../config"
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -37,7 +38,7 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           {health.isPending && <p className="text-muted-foreground text-sm">Checking…</p>}
-          {health.isError && <p className="text-destructive text-sm">{health.error.message}</p>}
+          {health.isError && <p className="text-destructive text-sm">{GENERIC_ERROR_MESSAGE}</p>}
           {health.data && (
             <div className="flex flex-col">
               <Row label="Relational (Drizzle)" value={health.data.db} />
