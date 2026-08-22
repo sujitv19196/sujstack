@@ -30,6 +30,8 @@ bun run dev          # http://localhost:3000
 | --- | --- |
 | `lib/db-core` — `@sujstack/db-core` | **Ports.** Interfaces only. No third-party runtime dependencies. |
 | `apps/db` — `@sujstack/db` | **Adapters**, Drizzle schema, and the composition root. |
+| `lib/obs-core` — `@sujstack/obs-core` | **Port.** One event sink. Interfaces only. No third-party runtime dependencies. |
+| `apps/obs` — `@sujstack/obs` | **Adapters**, the event catalog, and the composition root. |
 | `lib/trpc` — `@sujstack/trpc` | Router, context, React bindings. |
 | `lib/ui` — `@sujstack/ui` | Tailwind v4 theme + shadcn/ui components. |
 | `apps/next` — `@sujstack/next` | The application. |
@@ -72,6 +74,45 @@ runKvContract("redis", () => createRedisKv(url))
 The contract suites live with the ports because they are the executable specification of what a
 port means.
 
+## Observability
+
+The same ports and adapters split, one layer up. `lib/obs-core` owns the `EventSink` port and the
+`createLog` facade; `apps/obs` owns the adapters, the catalog and the composition root.
+
+The unit is the **event key**. One entry in `apps/obs/src/events.ts` produces the log line, the
+metric dimension and the alert threshold:
+
+```ts
+export const events = {
+  "trpc.failed": {
+    message: "tRPC procedure failed",
+    alert: { ratePerMinute: 5, forMinutes: 10, severity: "page" },
+  },
+} satisfies EventCatalog
+```
+
+`log.info(key, fields)` takes a key from that catalog, so a typo is a compile error and autocomplete
+lists what exists. Fields are `Record<string, unknown>`: the catalog closes the set of *keys*, not
+the shape of each payload.
+
+tRPC procedures are **not** declared. `EventKey` also admits any `` `trpc.${string}` ``, so the
+middleware emits `trpc.health.check` per route with no catalog edit, and the backend groups on it.
+Add an entry only to attach a threshold to one route. Deriving the keys from the router instead
+would be circular: the context carries the log, the router type depends on the context, and the key
+union would depend on the router.
+
+### Adding a sink
+
+1. Write the adapter in `apps/obs/src/adapters/`, implementing `EventSink`.
+2. Point `apps/obs/src/runtime.ts` at it.
+
+There is no config union and no factory, because no adapter takes an argument — a provider string
+would carry no information the import does not. Dropping Sentry means deleting
+`apps/obs/src/adapters/sentry.ts` and its dependency; `@sujstack/obs-core` never referenced it.
+
+`@sujstack/obs-core/testing` ships `createMemorySink` for asserting what your own code logged. It is
+a test double, not an adapter — unlike `createMemoryKv`, nothing would ever run it.
+
 ### UI components
 
 `lib/ui/src/index.ts` re-exports each component file with `export *`, so everything a file
@@ -101,6 +142,31 @@ metric or dimensions silently invalidates every vector already stored, so they a
 Pinecone needs an API key and index name; a discriminated union can. Credentials are read at the
 composition root and passed in as data, so nothing below it touches `process.env`.
 
+**The event key is the unit, and nothing is sampled.** Free-form logging floods developers because
+every call site independently decides what is worth writing down; a catalog moves that decision to
+one reviewed file. Volume is then controlled by alert thresholds rather than by dropping records —
+sampling solves ingest cost, which is a different problem, and it turns the error counts a threshold
+reads into estimates. There is no `minLevel` in the facade either: verbosity is an adapter property,
+and the Sentry adapter is where a floor belongs.
+
+**One `write()` is one delivery.** `EventSink.write` returns `void`, must not throw, and must not
+block; batching, retries and delivery are the adapter's business, and the model is eventual
+consistency. A logging call must never fail the request it is logging about, so `createLog` isolates
+each sink in a `try`/`catch`. Adapter authors on serverless should note that a bare `void fetch(…)`
+can be killed when the response returns — that is an adapter concern, deliberately not in the port.
+
+**`error()` requires its cause, and the cause stays raw.** The failure mode is
+`log.error(key, { message: err.message })`, which flattens an `Error` into a string and destroys the
+stack. Making the cause a required parameter gives the `Error` a home, and the facade passes it
+through untouched so Sentry can parse the real stack and fingerprint on it — a pre-serialised object
+would break both. The console adapter relies on the runtime printing `cause` chains natively.
+
+**Alert severity is `page` or `ticket`, not a vendor's routing target.** `ratePerMinute` decides when
+an alert fires; `severity` decides how loud. `page` wakes someone now, `ticket` lands in a
+business-hours queue. Naming a destination instead would bake one vendor into a port meant to
+outlive it. Nothing reads the field yet: it is a reviewed declaration that cannot drift from the key
+it guards, and applying it needs a script and an API token.
+
 **Vector `id` is a plain `string`, not a UUID.** TypeScript has no UUID type, and providers
 disagree: Pinecone and Chroma accept arbitrary strings, pgvector takes whatever the primary key
 is, and Qdrant accepts only unsigned ints or UUIDs. Constraining the shared interface to UUIDs
@@ -129,6 +195,9 @@ package, so TS 7 and linting coexist. It replaces Prettier too.
 `User` and `NewUser` come from Drizzle's `$inferSelect` / `$inferInsert`, so they cannot drift
 from the definitions. `db:generate` turns definitions into SQL and `db:check` fails on drift.
 The barrel re-exports the schema with `export *`, so a new table needs no barrel edit.
+
+**Catalog.** `apps/obs/src/events.ts` is human-authored the same way the schema is; the types are
+not. `AppEvents` is `typeof events`, so the key union cannot drift from the definitions.
 
 **Optional arguments are used intentionally and sparingly.**
 
