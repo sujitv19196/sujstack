@@ -4,6 +4,8 @@ import { publicProcedure, router } from "../init"
 export const healthRouter = router({
   /** Reports what the data layer is wired to, without connecting. */
   check: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.databaseConfigured) ctx.log.error("db.unconfigured", { path: "health.check" })
+
     const vector = await ctx.vectors.describe()
 
     return {
