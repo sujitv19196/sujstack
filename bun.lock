@@ -27,8 +27,11 @@
       "name": "@sujstack/next",
       "version": "0.0.0",
       "dependencies": {
+        "@sentry/nextjs": "10.70.0",
         "@sujstack/db": "workspace:*",
         "@sujstack/db-core": "workspace:*",
+        "@sujstack/obs": "workspace:*",
+        "@sujstack/obs-core": "workspace:*",
         "@sujstack/trpc": "workspace:*",
         "@sujstack/ui": "workspace:*",
         "@tanstack/react-query": "5.101.4",
@@ -83,6 +86,7 @@
       },
       "devDependencies": {
         "@sujstack/db": "workspace:*",
+        "@sujstack/obs": "workspace:*",
         "@types/node": "26.2.0",
         "@types/react": "19.2.18",
         "react": "19.2.8",

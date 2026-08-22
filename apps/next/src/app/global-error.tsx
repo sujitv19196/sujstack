@@ -1,5 +1,6 @@
 "use client"
 
+import { log } from "@sujstack/obs/runtime"
 import { useEffect } from "react"
 import { GENERIC_ERROR_MESSAGE } from "../config"
 import "./globals.css"
@@ -13,8 +14,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // TODO: send this somewhere real instead of the console.
-    console.error("[root]", error)
+    log.error("app.unhandled", error, { boundary: "root", digest: error.digest ?? "" })
   }, [error])
 
   return (

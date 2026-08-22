@@ -1,5 +1,6 @@
 import type { Database, KvProvider, VectorProvider } from "@sujstack/db"
 import type { KeyValueStore, VectorStore } from "@sujstack/db-core"
+import type { AppLog } from "@sujstack/obs/runtime"
 
 /** What every procedure may touch. `kv` and `vectors` are typed as ports. */
 export interface Context {
@@ -14,6 +15,7 @@ export interface Context {
     readonly vector: VectorProvider
   }
   readonly headers: Headers
+  readonly log: AppLog
 }
 
 /** Implemented by the application. See apps/next/src/app/api/trpc/[trpc]/route.ts. */

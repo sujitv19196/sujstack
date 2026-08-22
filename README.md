@@ -101,6 +101,14 @@ Add an entry only to attach a threshold to one route. Deriving the keys from the
 would be circular: the context carries the log, the router type depends on the context, and the key
 union would depend on the router.
 
+Every procedure is logged by a middleware attached to `publicProcedure`, so a route added to the
+router needs no catalog edit. Severity follows the fault: `INTERNAL_SERVER_ERROR` is logged at
+`error` with the cause, and every other tRPC code at `warn` with its detail — bad input from a
+client is not a system failure, and paging on it is the flood this module exists to prevent.
+Errors that never reach a procedure (an unresolved path) are logged by the route handler's
+`onError` under the flat `trpc.failed` key, because there `path` is unvalidated client input and
+belongs in the fields rather than in the key.
+
 ### Adding a sink
 
 1. Write the adapter in `apps/obs/src/adapters/`, implementing `EventSink`.
@@ -166,6 +174,12 @@ an alert fires; `severity` decides how loud. `page` wakes someone now, `ticket` 
 business-hours queue. Naming a destination instead would bake one vendor into a port meant to
 outlive it. Nothing reads the field yet: it is a reviewed declaration that cannot drift from the key
 it guards, and applying it needs a script and an API token.
+
+**Errors are masked at the tRPC boundary, not only at render.** `errorFormatter` in
+`lib/trpc/src/init.ts` replaces an `INTERNAL_SERVER_ERROR`'s message and strips its stack, so
+neither reaches the browser; the server keeps both in the log. Client faults keep their message,
+which the caller needs in order to fix the request. Masking only in `error.tsx` would hide a
+server fault from the user but not from the network tab.
 
 **Vector `id` is a plain `string`, not a UUID.** TypeScript has no UUID type, and providers
 disagree: Pinecone and Chroma accept arbitrary strings, pgvector takes whatever the primary key

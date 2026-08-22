@@ -10,8 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/nextjs": "10.70.0",
     "@sujstack/db": "workspace:*",
     "@sujstack/db-core": "workspace:*",
+    "@sujstack/obs": "workspace:*",
+    "@sujstack/obs-core": "workspace:*",
     "@sujstack/trpc": "workspace:*",
     "@sujstack/ui": "workspace:*",
     "@tanstack/react-query": "5.101.4",

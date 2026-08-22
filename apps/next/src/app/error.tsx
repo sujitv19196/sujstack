@@ -1,5 +1,6 @@
 "use client"
 
+import { log } from "@sujstack/obs/runtime"
 import { Button } from "@sujstack/ui"
 import { useEffect } from "react"
 import { GENERIC_ERROR_MESSAGE } from "../config"
@@ -12,8 +13,7 @@ export default function ErrorBoundary({
   reset: () => void
 }) {
   useEffect(() => {
-    // TODO: send this somewhere real instead of the console.
-    console.error("[render]", error)
+    log.error("app.unhandled", error, { boundary: "render", digest: error.digest ?? "" })
   }, [error])
 
   return (
