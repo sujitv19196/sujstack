@@ -33,7 +33,7 @@ Bun workspaces (`apps/*`, `lib/*`). The organising idea is **Ports and Adapters*
 | `lib/db-core` | Port. `KeyValueStore`, `VectorStore`. Zero runtime dependencies. |
 | `apps/db` | Adapters, Drizzle schema, composition root. |
 | `lib/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
-| `apps/obs` | Adapters (console, Sentry), the event catalog, composition root. |
+| `apps/obs` | Adapters (console, Sentry), composition root. |
 | `lib/trpc` | Router, `Context`, React bindings. |
 | `lib/ui` | Tailwind v4 theme + shadcn/ui. |
 | `apps/next` | The application. |
@@ -59,28 +59,26 @@ enters its graph. Preserve this — a runtime dependency there inverts the arrow
 
 ### Observability
 
-The unit is the **event key**. One entry in `apps/obs/src/events.ts` carries the message and the
-alert threshold; `log.info(key, fields)` takes a key from that catalog, so a typo is a compile error.
+There is no event catalog. The message is a free-form string chosen by the caller; keep it static
+and put the variable part in `fields`, so the backend can group on it.
 
 ```ts
-log.debug|info|warn(key, fields?)
-log.error(key, cause, fields?)   // cause is REQUIRED and comes BEFORE fields
+log.debug|info|warn(message, fields?)
+log.error(message, cause, fields?)   // cause is REQUIRED and comes BEFORE fields
 ```
 
-Fields are `Record<string, unknown>` — the catalog closes the set of *keys*, not each payload shape.
-`EventKey` also admits any `` `trpc.${string}` ``, so tRPC procedures register themselves per route
-with no catalog edit; add an entry only to attach a threshold to one route.
+The tRPC middleware logs every procedure as `trpc.<path>`.
 
 Severity follows the fault, and this split is deliberate: `INTERNAL_SERVER_ERROR` logs at `error`
 with the cause, every other tRPC code at `warn`. Logging bad client input at error level is the
 flood the module exists to prevent. Errors that never reach a procedure are logged by `onError` in
 the route handler under the flat `trpc.failed` key, because there `path` is unvalidated client input
-and must stay in the fields — never in the key.
+and must stay in the fields — never in the message.
 
 `error()` requires its cause and passes it through **raw**; Sentry needs the live `Error` to parse
 the stack and fingerprint on it. Do not serialize it in the facade.
 
-Nothing reads the `alert` field yet. Sentry is inert without a DSN, so the app boots uncredentialed.
+Alerting is not modelled in code. Sentry is inert without a DSN, so the app boots uncredentialed.
 `@sujstack/obs-core/testing` exports `createMemorySink` for asserting what code logged.
 
 ### Errors across the wire
@@ -110,8 +108,8 @@ but that alone would hide a server fault from the user and not from the network 
 - **Secrets come from the environment; topology and behaviour come from code.** Adapter selection,
   vector dimensions and distance metric live in `runtime.ts`, not in env vars. Credentials are read
   at the composition root and passed down as data, so nothing below it touches `process.env`.
-- Table definitions in `apps/db/src/schema.ts` and the catalog in `apps/obs/src/events.ts` are
-  human-authored; their types are not (`$inferSelect`, `typeof events`), so they cannot drift.
+- Table definitions in `apps/db/src/schema.ts` are human-authored; their types are not
+  (`$inferSelect`), so they cannot drift.
 - `bun test` does **not** typecheck. Type-level assertions need `@ts-expect-error` in a file that
   `bun run typecheck` sees.
 - `apps/next/next-env.d.ts` is generated and flips between `.next/types` and `.next/dev/types`

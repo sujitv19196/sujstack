@@ -3,8 +3,6 @@ export type Level = "debug" | "info" | "warn" | "error"
 export type Fields = Readonly<Record<string, unknown>>
 
 export interface EventRecord {
-  /** A key from the catalog. Stable across versions; safe to grep, tag and alert on. */
-  readonly key: string
   readonly message: string
   readonly level: Level
   readonly fields: Fields

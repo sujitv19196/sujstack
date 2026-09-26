@@ -6,13 +6,13 @@ const clock = (time: number): string => new Date(time).toISOString().slice(11, 2
 export function createConsoleSink(): EventSink {
   return {
     write(record: EventRecord): void {
-      const head = `${clock(record.time)} ${record.level.toUpperCase().padEnd(5)} ${record.key}`
+      const head = `${clock(record.time)} ${record.level.toUpperCase().padEnd(5)} ${record.message}`
       const body = Object.keys(record.fields).length > 0 ? [record.fields] : []
 
       // The cause goes through as the raw value: the runtime prints Error chains and their
       // stacks natively, which is why nothing here serialises it.
-      if ("cause" in record) console[record.level](head, record.message, ...body, record.cause)
-      else console[record.level](head, record.message, ...body)
+      if ("cause" in record) console[record.level](head, ...body, record.cause)
+      else console[record.level](head, ...body)
     },
   }
 }

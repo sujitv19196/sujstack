@@ -5,7 +5,6 @@ import { createConsoleSink } from "./console"
 const LEVELS: readonly Level[] = ["debug", "info", "warn", "error"]
 
 const record = (level: Level, cause?: unknown): EventRecord => ({
-  key: "test.thing",
   message: "a test event",
   level,
   fields: { count: 1 },
@@ -43,7 +42,7 @@ test("an empty fields object is not printed", () => {
   const spy = spyOn(console, "info").mockImplementation(() => {})
   try {
     createConsoleSink().write({ ...record("info"), fields: {} })
-    expect(spy.mock.calls[0]).toEqual(["14:23:07.412 INFO  test.thing", "a test event"])
+    expect(spy.mock.calls[0]).toEqual(["14:23:07.412 INFO  a test event"])
   } finally {
     spy.mockRestore()
   }

@@ -8,22 +8,20 @@ import type { EventRecord, EventSink } from "@sujstack/obs-core"
 export function createSentrySink(): EventSink {
   return {
     write(record: EventRecord): void {
-      // `key` is the only tag: it is bounded by the catalog, and the fields are not.
-      const tags = { key: record.key }
-      const contexts = { fields: { ...record.fields } }
+      const contexts = { log: { message: record.message }, fields: { ...record.fields } }
 
       if (record.level === "error") {
         // The raw cause, so Sentry parses the real stack and fingerprints on it.
-        Sentry.captureException(record.cause, { tags, contexts })
+        Sentry.captureException(record.cause, { contexts })
         return
       }
 
       if (record.level === "warn") {
-        Sentry.captureMessage(record.message, { level: "warning", tags, contexts })
+        Sentry.captureMessage(record.message, { level: "warning", contexts })
         return
       }
 
-      Sentry.logger[record.level](record.message, { key: record.key, ...record.fields })
+      Sentry.logger[record.level](record.message, record.fields)
     },
   }
 }

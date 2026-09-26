@@ -14,9 +14,8 @@ const t = initTRPC.context<Context>().create({
 })
 
 /**
- * Emits one `trpc.<path>` event per resolved call. `path` is bounded by the router here, which
- * is why it is safe as a key; errors that never reach a procedure are logged by the handler's
- * `onError` under the flat `trpc.failed` key instead.
+ * Emits one `trpc.<path>` event per resolved call. Errors that never reach a procedure are logged
+ * by the handler's `onError` under the flat `trpc.failed` message instead.
  */
 const logged = t.middleware(async ({ ctx, path, type, next }) => {
   const startedAt = performance.now()
