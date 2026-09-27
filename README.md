@@ -109,13 +109,17 @@ is unvalidated client input and belongs in the fields rather than in the message
 
 ## Metrics
 
-Every counter and alert rule is declared in `apps/next/src/server/metrics/catalog.ts`. The catalog
-spreads the kit's `trpcCounterDefs`, which the tRPC middleware needs, and adds your own:
+Every counter and alert rule is declared in `apps/next/src/server/metrics/catalog.ts`, including
+the ones that count tRPC calls and webhook deliveries. The kit never increments a counter: it logs
+each call or delivery and hands the result to a callback, and the app maps that to its own counter:
 
 ```ts
-export const counters = defineCatalog({
-  ...trpcCounterDefs,
-})
+// server/trpc/init.ts — supplied as `ctx.onCall`
+export function countCalls(metrics: Metrics<typeof counters>) {
+  return (call: TrpcCall) => metrics.increment("trpc.requests", { outcome: call.outcome })
+}
+// server/webhooks/runtime.ts
+onDelivery: ({ outcome }) => metrics.increment("webhooks.received", { source: "demo", outcome }),
 ```
 
 `bun run metrics:rules` compiles `rules` to `apps/next/rules.yaml`, which is committed;
@@ -144,6 +148,28 @@ Paths live in `apps/next/src/routes.ts`, not inline. The tRPC endpoint in partic
 two places that must agree — the route handler's `endpoint` and the client link's URL — so it is
 a single const. `absoluteUrl()` there returns a relative URL in the browser and an absolute one
 on the server, which has no origin of its own.
+
+### Webhooks
+
+The kit's `@sujstack/webhook-core` owns what every webhook shares: raw-body verification before
+parsing, status codes, and a `webhook.<source>` log and `webhooks.received{source, outcome}` count per
+delivery. Verifiers and handlers are yours. To add a provider:
+
+1. Add its name to the `source` union of `webhooks.received` in the metrics catalog.
+2. Write a `WebhookVerifier` in `src/server/webhooks/<provider>.ts`, usually a few lines around the
+   provider's SDK, and prove it with `runVerifierContract` from `@sujstack/webhook-core/testing`.
+3. Wire it in `src/server/webhooks/runtime.ts`, which reads its secret and counts each delivery in
+   `onDelivery`, and export it as `POST` from `src/app/api/webhooks/<provider>/route.ts`.
+
+`handle` may run twice for one event, since providers retry; `event.id` is stable, so skip repeats
+with a KV check where that matters. The `demo` source signs `x-demo-signature: sha256=<hex HMAC>`.
+To send one by hand in development:
+
+```sh
+body='{"id":"evt_1","type":"demo.ping"}'
+sig=$(printf %s "$body" | openssl dgst -sha256 -hmac sujstack-dev-webhook-secret -hex | sed 's/.* //')
+curl -i localhost:3000/api/webhooks/demo -H "x-demo-signature: sha256=$sig" -d "$body"
+```
 
 ### Query defaults
 
@@ -178,11 +204,11 @@ rest, so a call rejected by auth is still logged at `warn` and counted as `clien
 reverse order would hide exactly the traffic that probes the API. The masked server-fault message is the app's `GENERIC_ERROR_MESSAGE`,
 passed to `createTrpc`, so the wire and the render layer say the same thing.
 
-**`createTrpc` is generic over the app's context.** The middleware needs `log` and a `metrics`
-whose catalog has `trpc.requests`; the procedures need everything else. `createTrpc<C extends BaseContext>()`
-lets the kit own the first without knowing the second, so it never imports a type from the app.
-The app's catalog spreads `trpcCounterDefs`, and a `Metrics` over a superset catalog is assignable
-to the kit's `Metrics<typeof trpcCounters>` — a type test in `trpc-core` locks that in.
+**`createTrpc` is generic over the app's context.** The middleware needs `log` and an `onCall`; the
+procedures need everything else. `createTrpc<C extends BaseContext>()` lets the kit own the first
+without knowing the second, so it never imports a type from the app. `onCall` is built by
+`countCalls(metrics)` in `init.ts`, so the route handler and each test harness count calls the same
+way, and a test that passes a memory sink sees exactly what production would count.
 
 **Secrets come from the environment; topology and behavior come from code.** `DATABASE_URL` is
 the only environment variable the data layer reads, because it is a per-deployment secret. Which
@@ -190,6 +216,11 @@ adapter backs a store, the vector dimensionality and the distance metric are *no
 config — changing the metric or dimensions silently invalidates every vector already stored, so
 they are code, in `runtime.ts`. Credentials are read at the composition root and passed in as
 data, so nothing below it touches `process.env`.
+
+**The demo webhook has a public dev secret.** Without `DEMO_WEBHOOK_SECRET`, development falls
+back to a fixed secret so the demo works uncredentialed. Production has no fallback and answers 503,
+because a known secret would let anyone forge a delivery. A real provider's route should have no
+fallback at all.
 
 ## Conventions
 

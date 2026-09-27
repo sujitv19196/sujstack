@@ -51,7 +51,8 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/ports/db-core` | Port. `KeyValueStore`, `VectorStore`, contract suites. Zero runtime dependencies. |
 | `kit/ports/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
 | `kit/ports/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
-| `kit/ports/trpc-core` | `createTrpc<Context>()`: error mask, bare `procedure`, `logged` middleware, `trpcCounterDefs`. |
+| `kit/ports/trpc-core` | `createTrpc<Context>()`: error mask, bare `procedure`, `logged` middleware, `TrpcCall`. |
+| `kit/ports/webhook-core` | `WebhookVerifier`, logged `createWebhookHandler`, `WebhookDelivery`, `runVerifierContract`. No adapters. |
 | `kit/adapters/db` | `@sujstack/db-adapters`: `./kv/memory`, `./vector/memory`, `./postgres`. |
 | `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
@@ -60,7 +61,7 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a
 provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts` and
-`server/metrics/runtime.ts` — the only modules that name a concrete adapter, read `process.env`,
+`server/metrics/runtime.ts` and `server/webhooks/runtime.ts` — the only modules that name a concrete adapter, read `process.env`,
 and own the singletons.
 
 Adding a provider means: write the adapter, then call it in the composition root. There is
@@ -73,7 +74,8 @@ Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL di
 `db`, so creating it never opens a connection; the first *query* throws if `url` was `undefined`.
 
 The app's tRPC `Context` (`apps/next/src/server/trpc/context.ts`) extends the kit's `BaseContext`
-(`log`, `metrics`). `server/trpc/init.ts` calls `createTrpc<Context>()` and composes
+(`log`, `onCall`); the route handler supplies `onCall: countCalls(metrics)` from `init.ts`.
+`server/trpc/init.ts` calls `createTrpc<Context>()` and composes
 a private `baseProcedure = t.procedure.use(t.logged)`. Every exported base procedure is built there
 by extending `baseProcedure` (`publicProcedure = baseProcedure`,
 `protectedProcedure = baseProcedure.use(requireAuth)`) — siblings, not one extending the other, and
@@ -107,12 +109,14 @@ Alerting is not modelled in code. Sentry is inert without a DSN, so the app boot
 ### Metrics
 
 Unlike logs, metrics **do** have a catalog: `apps/next/src/server/metrics/catalog.ts` declares every
-counter and every alert rule, and spreads the kit's `trpcCounterDefs`. Labels are a type parameter;
+counter and every alert rule, including `trpc.requests` and `webhooks.received`. The kit never
+increments: it hands each call or delivery to a callback (`ctx.onCall`, `onDelivery`) and the app
+counts it there. Labels are a type parameter;
 a label typed as plain `string` is a compile error, which is the cardinality guard. Rules reference
 counters, never name strings, and compile to `apps/next/rules.yaml` — after changing the catalog,
 run `bun run metrics:rules` and commit the file. `promName` in
-`kit/ports/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation. The tRPC
-middleware counts `trpc.requests{outcome}` for every call that reached a procedure.
+`kit/ports/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation. `countCalls`
+in `server/trpc/init.ts` counts `trpc.requests{outcome}` for every call that reached a procedure.
 
 ### Errors across the wire
 

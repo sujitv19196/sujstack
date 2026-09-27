@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test"
+import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { createMemoryKv } from "@sujstack/db-adapters/kv/memory"
 import { createPostgres } from "@sujstack/db-adapters/postgres"
 import { createMemoryVectorStore } from "@sujstack/db-adapters/vector/memory"
@@ -6,10 +6,12 @@ import { createMetrics } from "@sujstack/metrics-core"
 import { createMemorySink as createMetricSink } from "@sujstack/metrics-core/testing"
 import { createLog } from "@sujstack/obs-core"
 import { createMemorySink } from "@sujstack/obs-core/testing"
+import { createWebhookHandler } from "@sujstack/webhook-core"
 import * as schema from "../../db/schema"
 import { counters } from "../../metrics/catalog"
+import { createDemoVerifier, handleDemoEvent } from "../../webhooks/demo"
 import type { Context } from "../context"
-import { createCallerFactory } from "../init"
+import { countCalls, createCallerFactory } from "../init"
 import { appRouter } from "./_app"
 
 const createCaller = createCallerFactory(appRouter)
@@ -17,6 +19,7 @@ const createCaller = createCallerFactory(appRouter)
 function harness() {
   const sink = createMemorySink()
   const metricSink = createMetricSink()
+  const metrics = createMetrics(counters, [metricSink])
   const context: Context = {
     db: createPostgres({ url: undefined, schema }).db,
     kv: createMemoryKv(),
@@ -24,8 +27,10 @@ function harness() {
     databaseConfigured: false,
     providers: { kv: "memory", vector: "memory" },
     headers: new Headers(),
+    demoWebhookSecret: "test-secret",
     log: createLog([sink]),
-    metrics: createMetrics(counters, [metricSink]),
+    metrics,
+    onCall: countCalls(metrics),
   }
   return { caller: createCaller(context), sink, metricSink }
 }
@@ -72,4 +77,38 @@ test("the namespace rejects a value its schema forbids, and stores one it allows
 
   expect(rejected).toMatchObject({ ok: false })
   expect(stored).toEqual({ ok: true, stored: { name: "Ada", visits: 3 }, keys: ["current"] })
+})
+
+describe("webhookSend", () => {
+  let server: ReturnType<typeof Bun.serve>
+  const port = process.env.PORT
+
+  beforeAll(() => {
+    const handler = createWebhookHandler({
+      source: "demo",
+      verifier: createDemoVerifier("test-secret"),
+      log: createLog([]),
+      handle: handleDemoEvent,
+      onDelivery: () => {},
+    })
+    server = Bun.serve({ port: 0, fetch: handler })
+    process.env.PORT = String(server.port)
+  })
+
+  afterAll(() => {
+    server.stop()
+    if (port === undefined) delete process.env.PORT
+    else process.env.PORT = port
+  })
+
+  test("the webhook accepts a signed delivery, rejects a forged one, and 500s on a crash", async () => {
+    const { caller } = harness()
+
+    const signed = await caller.demo.webhookSend({ delivery: "signed" })
+    const forged = await caller.demo.webhookSend({ delivery: "forged" })
+    const crashing = await caller.demo.webhookSend({ delivery: "crashing" })
+
+    expect([signed.status, forged.status, crashing.status]).toEqual([200, 401, 500])
+    expect(JSON.parse(forged.received)).toEqual({ error: "bad_signature" })
+  })
 })

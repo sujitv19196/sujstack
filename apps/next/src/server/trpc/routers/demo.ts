@@ -1,6 +1,8 @@
 import { defineNamespace, SchemaValidationError } from "@sujstack/db-core"
 import { TRPCError } from "@trpc/server"
 import { z } from "zod"
+import { absoluteUrl, routes } from "../../../routes"
+import { signDemo } from "../../webhooks/demo"
 import { publicProcedure, router } from "../init"
 
 const SAMPLE_DOCS = [
@@ -92,5 +94,24 @@ export const demoRouter = router({
       return stored.found
         ? { ok: true as const, stored: stored.value, keys: await profiles.list() }
         : { ok: false as const, issues: ["value was not readable after write"] }
+    }),
+
+  /** Acts as an external service: signs a delivery and POSTs it to the demo webhook. */
+  webhookSend: publicProcedure
+    .input(z.object({ delivery: z.enum(["signed", "forged", "crashing"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const body = JSON.stringify({
+        id: `evt_${crypto.randomUUID()}`,
+        type: input.delivery === "crashing" ? "demo.crash" : "demo.ping",
+        sentAt: new Date().toISOString(),
+      })
+      const secret = input.delivery === "forged" ? "not-the-secret" : ctx.demoWebhookSecret
+      const response = await fetch(absoluteUrl(routes.api.webhooks.demo), {
+        method: "POST",
+        headers:
+          secret === undefined ? { "content-type": "application/json" } : signDemo(body, secret),
+        body,
+      })
+      return { status: response.status, sent: body, received: await response.text() }
     }),
 })

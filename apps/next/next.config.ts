@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     "@sujstack/obs-adapters",
     "@sujstack/obs-core",
     "@sujstack/trpc-core",
+    "@sujstack/webhook-core",
   ],
 
   // Stops `next dev` writing AGENTS.md and CLAUDE.md into apps/next.

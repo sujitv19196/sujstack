@@ -9,7 +9,7 @@ import { createMemorySink } from "@sujstack/obs-core/testing"
 import * as schema from "../../db/schema"
 import { counters } from "../../metrics/catalog"
 import type { Context } from "../context"
-import { createCallerFactory } from "../init"
+import { countCalls, createCallerFactory } from "../init"
 import { appRouter } from "./_app"
 
 const createCaller = createCallerFactory(appRouter)
@@ -18,6 +18,7 @@ const createCaller = createCallerFactory(appRouter)
 function harness(databaseConfigured: boolean) {
   const sink = createMemorySink()
   const metricSink = createMetricSink()
+  const metrics = createMetrics(counters, [metricSink])
   const context: Context = {
     db: createPostgres({ url: undefined, schema }).db,
     kv: createMemoryKv(),
@@ -25,8 +26,10 @@ function harness(databaseConfigured: boolean) {
     databaseConfigured,
     providers: { kv: "memory", vector: "memory" },
     headers: new Headers(),
+    demoWebhookSecret: "test-secret",
     log: createLog([sink]),
-    metrics: createMetrics(counters, [metricSink]),
+    metrics,
+    onCall: countCalls(metrics),
   }
   return { caller: createCaller(context), sink, metricSink }
 }

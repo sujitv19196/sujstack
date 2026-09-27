@@ -1,8 +1,15 @@
-import { defineCatalog, type Rule, ratioAbove, select } from "@sujstack/metrics-core"
-import { trpcCounterDefs } from "@sujstack/trpc-core"
+import { defineCatalog, defineCounter, type Rule, ratioAbove, select } from "@sujstack/metrics-core"
 
 export const counters = defineCatalog({
-  ...trpcCounterDefs,
+  "trpc.requests": defineCounter<{ outcome: "ok" | "client_error" | "server_error" }>({
+    description: "tRPC procedure calls that reached a procedure, by outcome",
+  }),
+  "webhooks.received": defineCounter<{
+    source: "demo"
+    outcome: "accepted" | "rejected" | "failed"
+  }>({
+    description: "Webhook deliveries, by source and outcome",
+  }),
 })
 
 const requests = counters["trpc.requests"]

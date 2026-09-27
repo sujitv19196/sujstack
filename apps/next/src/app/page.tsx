@@ -5,6 +5,7 @@ import { KvCard } from "./_demo/kv-card"
 import { RulesCard } from "./_demo/rules-card"
 import { StackCard } from "./_demo/stack-card"
 import { VectorCard } from "./_demo/vector-card"
+import { WebhookCard } from "./_demo/webhook-card"
 
 export default function Home() {
   return (
@@ -21,6 +22,7 @@ export default function Home() {
       <KvCard />
       <VectorCard />
       <FaultsCard />
+      <WebhookCard />
       <RulesCard />
       <BoundaryCard />
     </main>

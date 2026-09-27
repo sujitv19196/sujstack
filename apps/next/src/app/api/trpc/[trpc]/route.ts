@@ -4,7 +4,9 @@ import { db, kv, postgres, providers, vectors } from "../../../../server/db/runt
 import { metrics } from "../../../../server/metrics/runtime"
 import { log } from "../../../../server/obs"
 import type { Context } from "../../../../server/trpc/context"
+import { countCalls } from "../../../../server/trpc/init"
 import { appRouter } from "../../../../server/trpc/routers/_app"
+import { demoWebhookSecret } from "../../../../server/webhooks/runtime"
 
 function handler(request: Request) {
   return fetchRequestHandler({
@@ -18,8 +20,10 @@ function handler(request: Request) {
       databaseConfigured: postgres.isConfigured,
       providers,
       headers: req.headers,
+      demoWebhookSecret,
       log,
       metrics,
+      onCall: countCalls(metrics),
     }),
     onError: ({ error, path, type }) => {
       // Anything that reached a procedure was already logged under `trpc.<path>` by the

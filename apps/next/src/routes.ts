@@ -3,6 +3,9 @@ export const routes = {
   home: "/",
   api: {
     trpc: "/api/trpc",
+    webhooks: {
+      demo: "/api/webhooks/demo",
+    },
   },
 } as const
 
