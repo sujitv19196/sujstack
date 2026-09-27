@@ -26,6 +26,11 @@ bun run dev          # http://localhost:3000
 | `bun run metrics:rules` | catalog → `apps/metrics/rules.yaml` |
 | `bun run metrics:check` | fails if `rules.yaml` has drifted from the catalog |
 
+The home page is a tour of the stack: adapters, KV namespaces, vector search, fault handling,
+alert rules and the render error boundary. It is built from `apps/next/src/app/_demo/` and the
+`demo` router in `lib/trpc/src/routers/demo.ts`. Delete both, and the router's line in `_app.ts`,
+to start clean.
+
 ## Layout
 
 | Package | Role |
