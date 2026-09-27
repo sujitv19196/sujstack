@@ -13,3 +13,8 @@ build/
 .turbo/
 coverage/
 *.tsbuildinfo
+
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

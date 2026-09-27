@@ -23,7 +23,9 @@
     "db:push": "bun run --filter @sujstack/next db:push",
     "db:studio": "bun run --filter @sujstack/next db:studio",
     "metrics:rules": "bun run --filter @sujstack/next metrics:rules",
-    "metrics:check": "bun run --filter @sujstack/next metrics:check"
+    "metrics:check": "bun run --filter @sujstack/next metrics:check",
+    "infra:fmt": "terraform -chdir=infra fmt -recursive",
+    "infra:check": "terraform -chdir=infra fmt -check -recursive && terraform -chdir=infra init -backend=false -input=false >/dev/null && terraform -chdir=infra validate"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.9",

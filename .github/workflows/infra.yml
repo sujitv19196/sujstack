@@ -1,0 +1,66 @@
+name: infra
+
+# Plans run on every PR that touches infra/; applies run when such a PR merges to main.
+# Both execute remotely in HCP Terraform, which holds the state and the provider tokens.
+on:
+  pull_request:
+    paths: [infra/**, .github/workflows/infra.yml]
+  push:
+    branches: [main]
+    paths: [infra/**, .github/workflows/infra.yml]
+
+concurrency:
+  group: infra
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash # explicit, so pipefail is on and a failing plan fails the step despite `tee`
+    working-directory: infra
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_wrapper: false
+
+      - run: terraform fmt -check -recursive
+      - run: terraform init -input=false
+      - run: terraform validate
+
+      - name: plan
+        if: github.event_name == 'pull_request'
+        run: terraform plan -input=false -no-color | tee plan.txt
+
+      - name: comment the plan on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs")
+            const plan = fs.readFileSync("infra/plan.txt", "utf8")
+            const marker = "<!-- infra-plan -->"
+            const body = `${marker}\n### Terraform plan\n\n<details><summary>Show plan</summary>\n\n\`\`\`\n${plan.slice(-60000)}\n\`\`\`\n</details>`
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+            })
+            const existing = comments.find((comment) => comment.body?.startsWith(marker))
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body })
+            }
+
+      - name: apply
+        if: github.event_name == 'push'
+        run: terraform apply -input=false -auto-approve

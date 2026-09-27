@@ -31,6 +31,7 @@ In an existing clone, `git submodule update --init` fetches `kit/`.
 | `bun run db:migrate` / `push` / `studio` | require `DATABASE_URL` |
 | `bun run metrics:rules` | catalog → `apps/next/rules.yaml` |
 | `bun run metrics:check` | fails if `rules.yaml` has drifted from the catalog |
+| `bun run infra:check` / `infra:fmt` | `terraform fmt` + `validate` on `infra/` (needs the Terraform CLI, no credentials) |
 
 The home page is a tour of the stack: adapters, KV namespaces, vector search, fault handling,
 alert rules and the render error boundary. It is built from `apps/next/src/app/_demo/` and the
@@ -44,6 +45,7 @@ in `_app.ts`, to start clean.
 | **Ports** — interfaces, facades, contract suites, tRPC plumbing | kit | `kit/ports/*` |
 | **Adapters** — memory, Postgres, console, Sentry, OTLP | kit | `kit/adapters/*` |
 | **Composition roots**, schema, catalog, routers, UI, pages | you | `apps/next` |
+| **Infrastructure** — Vercel project, Neon database, env vars | you | `infra/` |
 
 Everything under `kit/` is someone else's code: change it upstream, not here. Everything under
 `apps/next` is yours:
@@ -182,6 +184,90 @@ TanStack Query defaults live in `apps/next/src/trpc/config.ts`. Edit `queryDefau
 them app-wide, or pass `defaultOptions` to `<TRPCReactProvider>` to override one subtree. The
 client is built once on mount, so changing the prop afterwards has no effect.
 
+## Infrastructure
+
+`infra/` declares everything the deployment needs: the Vercel project (linked to this repo), a Neon
+project with a `main` branch for production and a `preview` branch shared by every preview
+deployment, and the env vars that connect the two. There are two separate loops:
+
+| Loop | Triggered by | Does |
+| --- | --- | --- |
+| App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. |
+| Infra changes | merging a PR that touches `infra/**` | `.github/workflows/infra.yml` runs `terraform plan` on the PR (posted as a comment) and `terraform apply` on merge. |
+
+Plans and applies execute remotely in HCP Terraform, which holds the state and the provider tokens.
+GitHub holds only `TF_API_TOKEN`. When an apply changes an env var, it redeploys `main` through a
+deploy hook, since env vars only reach deployments built after they changed.
+
+### Setting up a new deployment
+
+Terraform cannot create the accounts it signs in with, so a repository created from this template
+starts with a few manual steps. Each step uses a command where one exists and the web UI where
+none does. Never create the Vercel or Neon project by hand: Terraform creates both on the first
+apply, and a hand-made one would collide with it. Accounts and tokens you already have from another
+project can be reused.
+
+Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub CLI (`gh`).
+
+**1. Point the code at the new project.** In `infra/`, edit:
+
+- `versions.tf`: `organization` (your HCP Terraform organization) and the workspace `name` (unique
+  to this project).
+- `variables.tf`: `name` (what the Vercel and Neon projects are called) and `github_repo`
+  (`owner/name`).
+
+**2. Vercel** (UI only).
+
+1. Sign up at vercel.com with **Continue with GitHub**. When it offers to import a repository, close
+   that screen.
+2. Let Vercel read the repository: github.com/apps/vercel → **Configure** → your account →
+   *Repository access* → add the repository.
+3. Create an API token: **Account Settings → Tokens → Create**, scoped to your account. Copy it;
+   it is shown once.
+
+**3. Neon** (UI only). Sign up at neon.tech, then **Account settings → API keys → Create new API
+key**, and copy it.
+
+**4. HCP Terraform.**
+
+1. Sign up at app.terraform.io (not the portal.cloud.hashicorp.com console) and create an
+   organization (UI only).
+2. Sign in the CLI, then create the workspace named in `versions.tf`:
+
+   ```bash
+   terraform login
+   terraform -chdir=infra init
+   ```
+
+3. Add the provider tokens (UI only): workspace → **Variables → Add variable**, category
+   **Environment variable**, `VERCEL_API_TOKEN` and `NEON_API_KEY`, each marked **Sensitive**.
+   Optional **Terraform variables** `sentry_dsn`, `otel_endpoint` and `otel_headers` (Sensitive)
+   turn on Sentry and metrics.
+4. Check that the tokens work. This runs a remote plan and creates nothing:
+
+   ```bash
+   terraform -chdir=infra plan
+   ```
+
+**5. Give CI a token.** Create one in **Organization settings → Teams → API token**, or **User
+settings → Tokens** if your plan has no team tokens (UI only), then store it; the command prompts
+for it, so it stays out of your shell history:
+
+```bash
+gh secret set TF_API_TOKEN --repo <owner>/<repo>
+```
+
+**6. First apply.** Push to `main`. The workflow applies, creates the Neon and Vercel projects and
+the env vars, and triggers the first production deployment, which runs the first migration:
+
+```bash
+git push origin main
+gh run watch
+```
+
+Change infrastructure by editing `infra/` in a PR, never in the Vercel or Neon dashboards, or the
+next apply reverts it.
+
 ## Design decisions
 
 The port- and adapter-level decisions — free-form log messages, the metrics catalog, typed rule
@@ -234,6 +320,27 @@ handshake, so Neon is reached through the pooled URL with the existing `postgres
 pooler runs in transaction mode, so a transaction keeps its connection for its whole length, and
 prepared statements are already off. A Neon adapter would be a new kit export beside `./postgres`,
 not a replacement for it.
+
+**Infrastructure is Terraform, applied on merge.** Clicking through dashboards leaves nothing to
+review and nothing to rebuild from. HCP Terraform holds the state because CI runners are
+ephemeral and a local state file is one laptop away from Terraform forgetting what it created. It
+also runs the plans, so the provider tokens live in one place rather than in both GitHub secrets
+and a local `.env`. The Neon↔Vercel marketplace integration is deliberately not used: Terraform
+cannot install it, and everything it would set is declared in `infra/` instead.
+
+**One shared preview database.** Every preview deployment uses the `preview` Neon branch, forked
+from `main` when Terraform created it. That keeps previews off production data with nothing but
+Terraform. A branch per pull request would isolate previews from each other, but it needs CI to
+create, wire and delete branches on PR events; add it when two open PRs start fighting over a
+schema.
+
+**Migrations run in the Vercel build.** `bun run db:migrate && bun run build` means a deploy cannot
+go live against a schema it has not migrated. drizzle-kit reads `DATABASE_URL_UNPOOLED` first, so
+migrations bypass the transaction-mode pooler. Migrations must therefore be backwards compatible
+with the deployment still serving traffic, and a preview build migrates the shared preview branch.
+
+**The kit is public.** Vercel clones submodules only over public HTTPS, so `.gitmodules` points at
+the kit's HTTPS URL and the kit repo is public. It holds no secrets.
 
 ## Conventions
 

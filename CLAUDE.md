@@ -20,6 +20,8 @@ bun run db:check            # fails if migrations have drifted from the schema
 bun run db:migrate | db:push | db:studio   # require DATABASE_URL
 bun run metrics:rules       # catalog → apps/next/rules.yaml (commit it)
 bun run metrics:check       # fails if rules.yaml has drifted from the catalog
+bun run infra:check         # terraform fmt -check + validate (needs the terraform CLI, no credentials)
+bun run infra:fmt           # terraform fmt, writing fixes
 ```
 
 There is **no build step for kit packages**. They are consumed as TypeScript source and compiled
@@ -57,6 +59,7 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
 | `apps/next` | The application: composition roots, schema, catalog, routers, UI. |
+| `infra/` | Terraform: the Vercel project, Neon project and branches, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a
