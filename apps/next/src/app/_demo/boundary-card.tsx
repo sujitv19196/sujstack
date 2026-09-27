@@ -1,7 +1,8 @@
 "use client"
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
 import { useState } from "react"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 
 function Bomb(): never {
   throw new Error("Simulated render fault")

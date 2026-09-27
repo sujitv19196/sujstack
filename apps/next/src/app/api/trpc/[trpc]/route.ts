@@ -1,10 +1,10 @@
-import { db, isDatabaseConfigured } from "@sujstack/db"
-import { kv, kvConfig, vectorConfig, vectors } from "@sujstack/db/runtime"
-import { metrics } from "@sujstack/metrics/runtime"
-import { log } from "@sujstack/obs/runtime"
-import { appRouter, type Context } from "@sujstack/trpc/server"
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { routes } from "../../../../routes"
+import { db, kv, postgres, providers, vectors } from "../../../../server/db/runtime"
+import { metrics } from "../../../../server/metrics/runtime"
+import { log } from "../../../../server/obs"
+import type { Context } from "../../../../server/trpc/context"
+import { appRouter } from "../../../../server/trpc/routers/_app"
 
 function handler(request: Request) {
   return fetchRequestHandler({
@@ -15,8 +15,8 @@ function handler(request: Request) {
       db,
       kv,
       vectors,
-      databaseConfigured: isDatabaseConfigured(),
-      providers: { kv: kvConfig.provider, vector: vectorConfig.provider },
+      databaseConfigured: postgres.isConfigured,
+      providers,
       headers: req.headers,
       log,
       metrics,

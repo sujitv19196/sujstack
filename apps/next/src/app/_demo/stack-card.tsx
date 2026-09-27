@@ -1,9 +1,9 @@
 "use client"
 
-import { useTRPC } from "@sujstack/trpc/react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
 import { useQuery } from "@tanstack/react-query"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { GENERIC_ERROR_MESSAGE } from "../../config"
+import { useTRPC } from "../../trpc/react"
 import { Row } from "./row"
 
 export function StackCard() {

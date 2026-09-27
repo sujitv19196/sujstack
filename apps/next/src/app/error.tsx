@@ -1,9 +1,9 @@
 "use client"
 
-import { log } from "@sujstack/obs/runtime"
-import { Button } from "@sujstack/ui"
 import { useEffect } from "react"
+import { Button } from "../components/ui/button"
 import { GENERIC_ERROR_MESSAGE } from "../config"
+import { log } from "../server/obs"
 
 export default function ErrorBoundary({
   error,

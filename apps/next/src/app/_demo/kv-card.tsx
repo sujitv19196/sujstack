@@ -1,9 +1,10 @@
 "use client"
 
-import { useTRPC } from "@sujstack/trpc/react"
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
 import { useMutation } from "@tanstack/react-query"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { GENERIC_ERROR_MESSAGE } from "../../config"
+import { useTRPC } from "../../trpc/react"
 
 export function KvCard() {
   const trpc = useTRPC()

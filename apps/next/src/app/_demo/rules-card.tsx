@@ -1,6 +1,6 @@
-import { counters, rules } from "@sujstack/metrics"
 import { promName, renderRules } from "@sujstack/metrics-core"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { counters, rules } from "../../server/metrics/catalog"
 import { Row } from "./row"
 
 export function RulesCard() {
@@ -9,9 +9,9 @@ export function RulesCard() {
       <CardHeader>
         <CardTitle>Alert rules as code</CardTitle>
         <CardDescription>
-          Counters and rules are declared in <code>apps/metrics/src/catalog.ts</code>. Rules
-          reference typed counters and compile to the Prometheus rule file below, committed as{" "}
-          <code>apps/metrics/rules.yaml</code>.
+          Counters and rules are declared in <code>apps/next/src/server/metrics/catalog.ts</code>.
+          Rules reference typed counters and compile to the Prometheus rule file below, committed as{" "}
+          <code>apps/next/rules.yaml</code>.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

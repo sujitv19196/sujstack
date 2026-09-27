@@ -1,9 +1,10 @@
 "use client"
 
-import { useTRPC } from "@sujstack/trpc/react"
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
 import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { useTRPC } from "../../trpc/react"
 
 type Kind = "none" | "client" | "server"
 

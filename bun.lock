@@ -10,21 +10,58 @@
         "typescript": "7.0.2",
       },
     },
-    "apps/db": {
-      "name": "@sujstack/db",
+    "apps/next": {
+      "name": "@sujstack/next",
+      "version": "0.0.0",
+      "dependencies": {
+        "@sentry/nextjs": "10.70.0",
+        "@sujstack/db-adapters": "workspace:*",
+        "@sujstack/db-core": "workspace:*",
+        "@sujstack/metrics-adapters": "workspace:*",
+        "@sujstack/metrics-core": "workspace:*",
+        "@sujstack/obs-adapters": "workspace:*",
+        "@sujstack/obs-core": "workspace:*",
+        "@sujstack/trpc-core": "workspace:*",
+        "@tanstack/react-query": "5.101.4",
+        "@trpc/client": "11.18.0",
+        "@trpc/server": "11.18.0",
+        "@trpc/tanstack-react-query": "11.18.0",
+        "class-variance-authority": "0.7.1",
+        "clsx": "2.1.1",
+        "drizzle-orm": "0.45.2",
+        "lucide-react": "1.33.0",
+        "next": "16.3.2",
+        "radix-ui": "1.6.7",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "tailwind-merge": "3.6.0",
+        "zod": "4.4.3",
+      },
+      "devDependencies": {
+        "@tailwindcss/postcss": "4.3.3",
+        "@types/bun": "latest",
+        "@types/node": "26.2.0",
+        "@types/react": "19.2.18",
+        "@types/react-dom": "19.2.4",
+        "drizzle-kit": "0.31.10",
+        "tailwindcss": "4.3.3",
+        "tw-animate-css": "1.4.0",
+      },
+    },
+    "kit/adapters/db": {
+      "name": "@sujstack/db-adapters",
       "version": "0.0.0",
       "dependencies": {
         "@sujstack/db-core": "workspace:*",
         "drizzle-orm": "0.45.2",
         "postgres": "3.4.9",
-        "zod": "4.4.3",
       },
       "devDependencies": {
-        "drizzle-kit": "0.31.10",
+        "@types/bun": "latest",
       },
     },
-    "apps/metrics": {
-      "name": "@sujstack/metrics",
+    "kit/adapters/metrics": {
+      "name": "@sujstack/metrics-adapters",
       "version": "0.0.0",
       "dependencies": {
         "@opentelemetry/api": "1.9.1",
@@ -33,45 +70,22 @@
         "@opentelemetry/sdk-metrics": "2.11.0",
         "@sujstack/metrics-core": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
     },
-    "apps/next": {
-      "name": "@sujstack/next",
+    "kit/adapters/obs": {
+      "name": "@sujstack/obs-adapters",
       "version": "0.0.0",
       "dependencies": {
         "@sentry/nextjs": "10.70.0",
-        "@sujstack/db": "workspace:*",
-        "@sujstack/db-core": "workspace:*",
-        "@sujstack/metrics": "workspace:*",
-        "@sujstack/metrics-core": "workspace:*",
-        "@sujstack/obs": "workspace:*",
         "@sujstack/obs-core": "workspace:*",
-        "@sujstack/trpc": "workspace:*",
-        "@sujstack/ui": "workspace:*",
-        "@tanstack/react-query": "5.101.4",
-        "@trpc/client": "11.18.0",
-        "@trpc/server": "11.18.0",
-        "@trpc/tanstack-react-query": "11.18.0",
-        "next": "16.3.2",
-        "react": "19.2.8",
-        "react-dom": "19.2.8",
       },
       "devDependencies": {
-        "@tailwindcss/postcss": "4.3.3",
-        "@types/node": "26.2.0",
-        "@types/react": "19.2.18",
-        "@types/react-dom": "19.2.4",
-        "tailwindcss": "4.3.3",
+        "@types/bun": "latest",
       },
     },
-    "apps/obs": {
-      "name": "@sujstack/obs",
-      "version": "0.0.0",
-      "dependencies": {
-        "@sentry/nextjs": "10.70.0",
-        "@sujstack/obs-core": "workspace:*",
-      },
-    },
-    "lib/db-core": {
+    "kit/ports/db-core": {
       "name": "@sujstack/db-core",
       "version": "0.0.0",
       "devDependencies": {
@@ -79,64 +93,30 @@
         "@types/bun": "latest",
       },
     },
-    "lib/metrics-core": {
+    "kit/ports/metrics-core": {
       "name": "@sujstack/metrics-core",
       "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "latest",
       },
     },
-    "lib/obs-core": {
+    "kit/ports/obs-core": {
       "name": "@sujstack/obs-core",
       "version": "0.0.0",
       "devDependencies": {
         "@types/bun": "latest",
       },
     },
-    "lib/trpc": {
-      "name": "@sujstack/trpc",
+    "kit/ports/trpc-core": {
+      "name": "@sujstack/trpc-core",
       "version": "0.0.0",
       "dependencies": {
-        "@sujstack/db-core": "workspace:*",
-        "@tanstack/react-query": "5.101.4",
-        "@trpc/client": "11.18.0",
-        "@trpc/server": "11.18.0",
-        "@trpc/tanstack-react-query": "11.18.0",
-        "zod": "4.4.3",
-      },
-      "devDependencies": {
-        "@sujstack/db": "workspace:*",
-        "@sujstack/metrics": "workspace:*",
         "@sujstack/metrics-core": "workspace:*",
-        "@sujstack/obs": "workspace:*",
         "@sujstack/obs-core": "workspace:*",
-        "@types/bun": "latest",
-        "@types/node": "26.2.0",
-        "@types/react": "19.2.18",
-        "react": "19.2.8",
-      },
-      "peerDependencies": {
-        "react": "^19",
-      },
-    },
-    "lib/ui": {
-      "name": "@sujstack/ui",
-      "version": "0.0.0",
-      "dependencies": {
-        "class-variance-authority": "0.7.1",
-        "clsx": "2.1.1",
-        "lucide-react": "1.33.0",
-        "radix-ui": "1.6.7",
-        "tailwind-merge": "3.6.0",
+        "@trpc/server": "11.18.0",
       },
       "devDependencies": {
-        "@types/react": "19.2.18",
-        "react": "19.2.8",
-        "tailwindcss": "4.3.3",
-        "tw-animate-css": "1.4.0",
-      },
-      "peerDependencies": {
-        "react": "^19",
+        "@types/bun": "latest",
       },
     },
   },
@@ -609,23 +589,21 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@sujstack/db": ["@sujstack/db@workspace:apps/db"],
+    "@sujstack/db-adapters": ["@sujstack/db-adapters@workspace:kit/adapters/db"],
 
-    "@sujstack/db-core": ["@sujstack/db-core@workspace:lib/db-core"],
+    "@sujstack/db-core": ["@sujstack/db-core@workspace:kit/ports/db-core"],
 
-    "@sujstack/metrics": ["@sujstack/metrics@workspace:apps/metrics"],
+    "@sujstack/metrics-adapters": ["@sujstack/metrics-adapters@workspace:kit/adapters/metrics"],
 
-    "@sujstack/metrics-core": ["@sujstack/metrics-core@workspace:lib/metrics-core"],
+    "@sujstack/metrics-core": ["@sujstack/metrics-core@workspace:kit/ports/metrics-core"],
 
     "@sujstack/next": ["@sujstack/next@workspace:apps/next"],
 
-    "@sujstack/obs": ["@sujstack/obs@workspace:apps/obs"],
+    "@sujstack/obs-adapters": ["@sujstack/obs-adapters@workspace:kit/adapters/obs"],
 
-    "@sujstack/obs-core": ["@sujstack/obs-core@workspace:lib/obs-core"],
+    "@sujstack/obs-core": ["@sujstack/obs-core@workspace:kit/ports/obs-core"],
 
-    "@sujstack/trpc": ["@sujstack/trpc@workspace:lib/trpc"],
-
-    "@sujstack/ui": ["@sujstack/ui@workspace:lib/ui"],
+    "@sujstack/trpc-core": ["@sujstack/trpc-core@workspace:kit/ports/trpc-core"],
 
     "@swc/helpers": ["@swc/helpers@0.5.23", "", { "dependencies": { "tslib": "^2.8.0" } }, "sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw=="],
 
@@ -1059,13 +1037,21 @@
 
     "@sentry/bundler-plugins/dotenv": ["dotenv@17.4.2", "", {}, "sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw=="],
 
+    "@sujstack/db-adapters/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+
     "@sujstack/db-core/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+
+    "@sujstack/metrics-adapters/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 
     "@sujstack/metrics-core/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 
+    "@sujstack/next/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+
+    "@sujstack/obs-adapters/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+
     "@sujstack/obs-core/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 
-    "@sujstack/trpc/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+    "@sujstack/trpc-core/@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 
     "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.11.3", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.3", "tslib": "^2.4.0" }, "bundled": true }, "sha512-zLpS5asjEb7lq8jYLq37N6XKaE41DIexlY1rF/z4/tIl3wo13Sqm28fRyfIsKZD+NZ8mM5RoKkpW/rBcuoSZSg=="],
 
@@ -1133,13 +1119,21 @@
 
     "@esbuild-kit/core-utils/esbuild/@esbuild/win32-x64": ["@esbuild/win32-x64@0.18.20", "", { "os": "win32", "cpu": "x64" }, "sha512-kTdfRcSiDfQca/y9QIkng02avJ+NCaQvrMejlsB3RRv5sE9rRoeBPISaZpKxHELzRxZyLvNts1P27W3wV+8geQ=="],
 
+    "@sujstack/db-adapters/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+
     "@sujstack/db-core/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+
+    "@sujstack/metrics-adapters/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
     "@sujstack/metrics-core/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
+    "@sujstack/next/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+
+    "@sujstack/obs-adapters/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+
     "@sujstack/obs-core/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
-    "@sujstack/trpc/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+    "@sujstack/trpc-core/@types/bun/bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
     "tsx/esbuild/@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.28.2", "", { "os": "aix", "cpu": "ppc64" }, "sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ=="],
 

@@ -12,54 +12,65 @@ bun run typecheck           # tsc --noEmit in every workspace package
 bun run check               # Biome lint + format (read-only)
 bun run check:fix           # Biome, writing fixes — run this before finishing
 bun test                    # every test
-bun test lib/obs-core       # one package
+bun test kit/ports/obs-core  # one package
 bun test path/to/file.test.ts
 bun test -t "regex"         # one test by name
 bun run db:generate         # schema → SQL migration (no connection needed)
 bun run db:check            # fails if migrations have drifted from the schema
 bun run db:migrate | db:push | db:studio   # require DATABASE_URL
-bun run metrics:rules       # catalog → apps/metrics/rules.yaml (commit it)
+bun run metrics:rules       # catalog → apps/next/rules.yaml (commit it)
 bun run metrics:check       # fails if rules.yaml has drifted from the catalog
 ```
 
-There is **no build step for library packages**. They are consumed as TypeScript source and compiled
-by Next via `transpilePackages` in `apps/next/next.config.ts` — a new workspace package must be added
+There is **no build step for kit packages**. They are consumed as TypeScript source and compiled
+by Next via `transpilePackages` in `apps/next/next.config.ts` — a new kit package must be added
 to that array or the app will fail to compile it.
+
+## Kit
+
+`kit/` is the `sujstack-kit` repo mounted as a git submodule. It holds every port and adapter, and
+it has its own `CLAUDE.md`, `README.md`, `package.json`, `biome.json` and `tsconfig.base.json`
+(the root `tsconfig.base.json` just extends it).
+
+**Never edit `kit/` as part of an app change.** An edit there is a commit in the kit repo: make it
+inside `kit/`, run `bun run typecheck && bun test && bun run check` there, commit and push to
+the kit's remote first, then commit the SHA bump in this repo. If an app change seems to need a
+kit change, stop and say so.
 
 ## Architecture
 
-Bun workspaces (`apps/*`, `lib/*`). The organising idea is **Ports and Adapters**, applied twice.
+Bun workspaces (`apps/*`, `kit/ports/*`, `kit/adapters/*`). The organising idea is **Ports and
+Adapters**, with a physical boundary between code the kit owns and code the app owns.
 
 | Package | Role |
 | --- | --- |
-| `lib/db-core` | Port. `KeyValueStore`, `VectorStore`. Zero runtime dependencies. |
-| `apps/db` | Adapters, Drizzle schema, composition root. |
-| `lib/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
-| `apps/obs` | Adapters (console, Sentry), composition root. |
-| `lib/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
-| `apps/metrics` | Adapters (console, OTLP), counter + rule catalog, composition root. |
-| `lib/trpc` | Router, `Context`, React bindings. |
-| `lib/ui` | Tailwind v4 theme + shadcn/ui. |
-| `apps/next` | The application. |
+| `kit/ports/db-core` | Port. `KeyValueStore`, `VectorStore`, contract suites. Zero runtime dependencies. |
+| `kit/ports/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
+| `kit/ports/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
+| `kit/ports/trpc-core` | `createTrpc<Context>()`: logging/counting middleware, error mask, `trpcCounterDefs`. |
+| `kit/adapters/db` | `@sujstack/db-adapters`: `./kv/memory`, `./vector/memory`, `./postgres`. |
+| `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
+| `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
+| `apps/next` | The application: composition roots, schema, catalog, routers, UI. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
-not list the adapter package as a dependency, so code holding a port physically cannot reach a
-provider. `apps/*` is where a composition root lives — the only module that names a concrete
-provider, reads `process.env`, and owns the singletons (`apps/db/src/runtime.ts`,
-`apps/obs/src/runtime.ts`).
+not list an adapter package as a dependency, so code holding a port physically cannot reach a
+provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts` and
+`server/metrics/runtime.ts` — the only modules that name a concrete adapter, read `process.env`,
+and own the singletons.
 
-Adding a provider means: write the adapter, add a member to the config union, add a `case` to the
-factory, point the composition root at it. There is deliberately **no runtime provider registry and
-no "unknown provider" error** — switches are exhaustive with no `default`, so a missing case is a
-compile error. `apps/obs` has no config union or factory at all, because no sink takes an argument.
+Adding a provider means: write the adapter, then call it in the composition root. There is
+deliberately **no config union, no factory and no provider registry** — the import is the
+selection, so an unknown provider is a compile error. `providers` in `db/runtime.ts` is only a
+diagnostic label.
 
-Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL dialect). `apps/db/src/client.ts`
-uses a lazy `Proxy` so importing the module never opens a connection; the first *query* throws if
-`DATABASE_URL` is unset.
+Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL dialect).
+`createPostgres({ url, schema })` in `@sujstack/db-adapters/postgres` returns a lazy `Proxy` as
+`db`, so creating it never opens a connection; the first *query* throws if `url` was `undefined`.
 
-`lib/trpc` depends on `@sujstack/db` and `@sujstack/obs` as **devDependencies only**, for types
-(`Database`, `AppLog`). `verbatimModuleSyntax` erases `import type`, so neither runtime dependency
-enters its graph. Preserve this — a runtime dependency there inverts the arrow.
+The app's tRPC `Context` (`apps/next/src/server/trpc/context.ts`) extends the kit's `BaseContext`
+(`log`, `metrics`), and `server/trpc/init.ts` is `createTrpc<Context>()`. The kit never imports a
+type from the app — preserve this.
 
 ### Observability
 
@@ -87,41 +98,38 @@ Alerting is not modelled in code. Sentry is inert without a DSN, so the app boot
 
 ### Metrics
 
-Unlike logs, metrics **do** have a catalog: `apps/metrics/src/catalog.ts` declares every counter
-and every alert rule. Labels are a type parameter; a label typed as plain `string` is a compile
-error, which is the cardinality guard. Rules reference counters, never name strings, and compile to
-`apps/metrics/rules.yaml` — after changing the catalog, run `bun run metrics:rules` and commit the
-file. `promName` in `lib/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation.
-The tRPC middleware counts `trpc.requests{outcome}` for every call that reached a procedure.
+Unlike logs, metrics **do** have a catalog: `apps/next/src/server/metrics/catalog.ts` declares every
+counter and every alert rule, and spreads the kit's `trpcCounterDefs`. Labels are a type parameter;
+a label typed as plain `string` is a compile error, which is the cardinality guard. Rules reference
+counters, never name strings, and compile to `apps/next/rules.yaml` — after changing the catalog,
+run `bun run metrics:rules` and commit the file. `promName` in
+`kit/ports/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation. The tRPC
+middleware counts `trpc.requests{outcome}` for every call that reached a procedure.
 
 ### Errors across the wire
 
-`errorFormatter` in `lib/trpc/src/init.ts` replaces an `INTERNAL_SERVER_ERROR`'s message and strips
-its stack, so neither reaches the browser while the server keeps both in the log. Client faults keep
-their message, which the caller needs. `apps/next` also masks at render via `GENERIC_ERROR_MESSAGE`,
-but that alone would hide a server fault from the user and not from the network tab.
+`errorFormatter` in `kit/ports/trpc-core/src/create-trpc.ts` replaces an `INTERNAL_SERVER_ERROR`'s
+message and strips its stack, so neither reaches the browser while the server keeps both in the log.
+Client faults keep their message, which the caller needs. `apps/next` also masks at render via
+`GENERIC_ERROR_MESSAGE`, but that alone would hide a server fault from the user and not from the
+network tab.
 
 ## Conventions
 
 - **Rationale lives in `README.md`, not in comments.** Comments say what non-obvious code *does*, in
   one terse line. Most functions have none. When you make a design decision, add a paragraph to the
-  README's *Design decisions* section rather than arguing it in a code comment.
+  README's *Design decisions* section rather than arguing it in a code comment — `kit/README.md`
+  for a port or adapter decision, the root `README.md` for an app-level one.
 - **Biome, not ESLint/Prettier** (`eslint-config-next` bundles `typescript-eslint`, whose peer range
   excludes TS 7). Double quotes, **no semicolons**, 100 columns, 2-space indent.
-- **Adapters are closure-based factory functions returning object literals, never classes.** Private
-  state lives in closure variables. See `apps/db/src/adapters/kv/memory.ts`.
-- **Contract suites live with the port** and are the executable spec of what it means
-  (`@sujstack/db-core/testing`), so an adapter's test file is three lines. `obs-core` has none on
-  purpose: `write(record): void` with no return, no throw and no readback has no semantics to assert.
-- **Optional arguments are used sparingly.** A discriminated union when the return shape depends on
-  the argument or absence is ambiguous (`KvEntry<T>` over `T | null`); a plain optional only for one
-  independent knob with an obvious safe default; required when there is no safe default.
+- Port and adapter conventions (closure factories, contract suites, optional arguments) are in
+  `kit/CLAUDE.md`.
 - `exactOptionalPropertyTypes` is on, so a surviving optional means "absent", never "present and
   undefined" — build records with `...(x !== undefined && { x })` rather than assigning `undefined`.
 - **Secrets come from the environment; topology and behaviour come from code.** Adapter selection,
   vector dimensions and distance metric live in `runtime.ts`, not in env vars. Credentials are read
   at the composition root and passed down as data, so nothing below it touches `process.env`.
-- Table definitions in `apps/db/src/schema.ts` are human-authored; their types are not
+- Table definitions in `apps/next/src/server/db/schema.ts` are human-authored; their types are not
   (`$inferSelect`), so they cannot drift.
 - `bun test` does **not** typecheck. Type-level assertions need `@ts-expect-error` in a file that
   `bun run typecheck` sees.

@@ -1,12 +1,12 @@
 "use client"
 
-import { TRPCProvider } from "@sujstack/trpc/react"
-import type { AppRouter } from "@sujstack/trpc/server"
 import { type DefaultOptions, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createTRPCClient, httpBatchLink } from "@trpc/client"
 import { type ReactNode, useState } from "react"
 import { absoluteUrl, routes } from "../routes"
+import type { AppRouter } from "../server/trpc/routers/_app"
 import { queryDefaults } from "./config"
+import { TRPCProvider } from "./react"
 
 export interface TRPCReactProviderProps {
   children: ReactNode

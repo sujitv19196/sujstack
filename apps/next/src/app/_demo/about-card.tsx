@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@sujstack/ui"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 
 export function AboutCard() {
   return (
@@ -18,8 +18,8 @@ export function AboutCard() {
         </p>
         <p className="text-muted-foreground">
           To start clean, delete <code>apps/next/src/app/_demo/</code>, then <code>demo.ts</code>{" "}
-          and <code>demo.test.ts</code> in <code>lib/trpc/src/routers/</code>, and the router's line
-          in <code>_app.ts</code>.
+          and <code>demo.test.ts</code> in <code>apps/next/src/server/trpc/routers/</code>, and the
+          router's line in <code>_app.ts</code>.
         </p>
       </CardContent>
     </Card>
