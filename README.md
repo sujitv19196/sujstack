@@ -225,8 +225,9 @@ Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub
 3. Create an API token: **Account Settings → Tokens → Create**, scoped to your account. Copy it;
    it is shown once.
 
-**3. Neon** (UI only). Sign up at neon.tech, then **Account settings → API keys → Create new API
-key**, and copy it.
+**3. Neon** (UI only). Sign up at neon.tech, then create a **personal** API key: avatar → **Account
+settings → API keys → Create new API key**, and copy it. A key created inside a project's settings
+is project-scoped and cannot create projects, so the first apply fails with it.
 
 **4. HCP Terraform.**
 
@@ -263,6 +264,13 @@ the env vars, and triggers the first production deployment, which runs the first
 ```bash
 git push origin main
 gh run watch
+```
+
+If an apply fails on a token, fix the variable in the HCP workspace and re-run it; Terraform
+resumes from what it already created:
+
+```bash
+gh workflow run infra.yml --ref main
 ```
 
 Change infrastructure by editing `infra/` in a PR, never in the Vercel or Neon dashboards, or the
