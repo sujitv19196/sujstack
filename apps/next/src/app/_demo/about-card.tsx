@@ -16,6 +16,11 @@ export function AboutCard() {
           database and no credentials. The cards below exercise the real code paths, running against
           the in-memory adapters.
         </p>
+        <p>
+          The ports and adapters live in <code>kit/</code>, a separately versioned package pinned to
+          a release. The app owns only the composition roots, the metrics catalog, the routers and
+          this UI.
+        </p>
         <p className="text-muted-foreground">
           To start clean, delete <code>apps/next/src/app/_demo/</code>, then <code>demo.ts</code>{" "}
           and <code>demo.test.ts</code> in <code>apps/next/src/server/trpc/routers/</code>, and the
