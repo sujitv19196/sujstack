@@ -213,8 +213,8 @@ Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub
 
 - `versions.tf`: `organization` (your HCP Terraform organization) and the workspace `name` (unique
   to this project).
-- `variables.tf`: `name` (what the Vercel and Neon projects are called) and `github_repo`
-  (`owner/name`).
+- `variables.tf`: `name` (what the Vercel and Neon projects are called), `github_repo`
+  (`owner/name`) and `neon_org_id` (from `npx neonctl orgs list`, after step 3).
 
 **2. Vercel** (UI only).
 

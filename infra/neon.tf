@@ -1,5 +1,6 @@
 resource "neon_project" "app" {
   name                      = var.name
+  org_id                    = var.neon_org_id
   pg_version                = 17
   region_id                 = var.neon_region
   history_retention_seconds = 21600
