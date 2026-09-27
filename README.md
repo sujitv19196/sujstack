@@ -153,8 +153,10 @@ CLI there, so `bunx shadcn add <component>` works as usual. The theme is `src/ap
 
 Paths live in `apps/next/src/routes.ts`, not inline. The tRPC endpoint in particular appears in
 two places that must agree — the route handler's `endpoint` and the client link's URL — so it is
-a single const. `absoluteUrl()` there returns a relative URL in the browser and an absolute one
-on the server, which has no origin of its own.
+a single const. The browser uses these paths as they are. A server-side call back into the app
+builds its URL with `requestOrigin(ctx.headers)`, the origin the current request arrived on, from
+the `x-forwarded-host` and `x-forwarded-proto` headers that Vercel's proxy and `next dev` set, so
+it is correct locally, on production and on a preview alike.
 
 ### Webhooks
 

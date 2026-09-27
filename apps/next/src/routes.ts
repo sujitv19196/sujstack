@@ -9,13 +9,9 @@ export const routes = {
   },
 } as const
 
-function baseUrl(): string {
-  // The browser has an origin already; the server does not.
-  if (typeof window !== "undefined") return ""
-  return `http://localhost:${process.env.PORT ?? 3000}`
-}
-
-/** Relative in the browser, absolute on the server. */
-export function absoluteUrl(path: string): string {
-  return `${baseUrl()}${path}`
+/** The origin a server-side request arrived on, from the headers Vercel's proxy and `next dev` set. */
+export function requestOrigin(headers: Headers): string {
+  const host = headers.get("x-forwarded-host") ?? headers.get("host")
+  if (host === null) throw new Error("The request has no host header to build an origin from.")
+  return `${headers.get("x-forwarded-proto") ?? "http"}://${host}`
 }

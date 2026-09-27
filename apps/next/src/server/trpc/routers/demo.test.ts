@@ -16,7 +16,7 @@ import { appRouter } from "./_app"
 
 const createCaller = createCallerFactory(appRouter)
 
-function harness() {
+function harness(headers = new Headers()) {
   const sink = createMemorySink()
   const metricSink = createMetricSink()
   const metrics = createMetrics(counters, [metricSink])
@@ -26,7 +26,7 @@ function harness() {
     vectors: createMemoryVectorStore({ dimensions: 64, metric: "cosine" }),
     databaseConfigured: false,
     providers: { kv: "memory", vector: "memory" },
-    headers: new Headers(),
+    headers,
     demoWebhookSecret: "test-secret",
     log: createLog([sink]),
     metrics,
@@ -93,7 +93,6 @@ test("the namespace rejects a value its schema forbids, and stores one it allows
 
 describe("webhookSend", () => {
   let server: ReturnType<typeof Bun.serve>
-  const port = process.env.PORT
 
   beforeAll(() => {
     const handler = createWebhookHandler({
@@ -104,17 +103,16 @@ describe("webhookSend", () => {
       onDelivery: () => {},
     })
     server = Bun.serve({ port: 0, fetch: handler })
-    process.env.PORT = String(server.port)
   })
 
   afterAll(() => {
     server.stop()
-    if (port === undefined) delete process.env.PORT
-    else process.env.PORT = port
   })
 
   test("the webhook accepts a signed delivery, rejects a forged one, and 500s on a crash", async () => {
-    const { caller } = harness()
+    const { caller } = harness(
+      new Headers({ "x-forwarded-host": `localhost:${server.port}`, "x-forwarded-proto": "http" }),
+    )
 
     const signed = await caller.demo.webhookSend({ delivery: "signed" })
     const forged = await caller.demo.webhookSend({ delivery: "forged" })
@@ -122,5 +120,11 @@ describe("webhookSend", () => {
 
     expect([signed.status, forged.status, crashing.status]).toEqual([200, 401, 500])
     expect(JSON.parse(forged.received)).toEqual({ error: "bad_signature" })
+  })
+
+  test("without a host header there is no origin to send to", async () => {
+    const { caller } = harness()
+
+    await expect(caller.demo.webhookSend({ delivery: "signed" })).rejects.toThrow()
   })
 })

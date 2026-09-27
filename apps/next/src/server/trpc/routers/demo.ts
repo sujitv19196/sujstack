@@ -2,7 +2,7 @@ import { defineNamespace, SchemaValidationError } from "@sujstack/db-core"
 import { TRPCError } from "@trpc/server"
 import { eq, sql, TransactionRollbackError } from "drizzle-orm"
 import { z } from "zod"
-import { absoluteUrl, routes } from "../../../routes"
+import { requestOrigin, routes } from "../../../routes"
 import { users } from "../../db/schema"
 import { signDemo } from "../../webhooks/demo"
 import { publicProcedure, router } from "../init"
@@ -150,7 +150,8 @@ export const demoRouter = router({
         sentAt: new Date().toISOString(),
       })
       const secret = input.delivery === "forged" ? "not-the-secret" : ctx.demoWebhookSecret
-      const response = await fetch(absoluteUrl(routes.api.webhooks.demo), {
+      const url = new URL(routes.api.webhooks.demo, requestOrigin(ctx.headers))
+      const response = await fetch(url, {
         method: "POST",
         headers:
           secret === undefined ? { "content-type": "application/json" } : signDemo(body, secret),

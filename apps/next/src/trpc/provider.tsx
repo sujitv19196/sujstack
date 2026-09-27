@@ -3,7 +3,7 @@
 import { type DefaultOptions, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createTRPCClient, httpBatchLink } from "@trpc/client"
 import { type ReactNode, useState } from "react"
-import { absoluteUrl, routes } from "../routes"
+import { routes } from "../routes"
 import type { AppRouter } from "../server/trpc/routers/_app"
 import { queryDefaults } from "./config"
 import { TRPCProvider } from "./react"
@@ -22,7 +22,8 @@ export function TRPCReactProvider({
   const [queryClient] = useState(() => new QueryClient({ defaultOptions }))
   const [trpcClient] = useState(() =>
     createTRPCClient<AppRouter>({
-      links: [httpBatchLink({ url: absoluteUrl(routes.api.trpc) })],
+      // Relative: only the browser fetches through this client.
+      links: [httpBatchLink({ url: routes.api.trpc })],
     }),
   )
 
