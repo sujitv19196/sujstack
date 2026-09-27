@@ -1,7 +1,9 @@
 import { defineNamespace, SchemaValidationError } from "@sujstack/db-core"
 import { TRPCError } from "@trpc/server"
+import { eq, sql, TransactionRollbackError } from "drizzle-orm"
 import { z } from "zod"
 import { absoluteUrl, routes } from "../../../routes"
+import { users } from "../../db/schema"
 import { signDemo } from "../../webhooks/demo"
 import { publicProcedure, router } from "../init"
 
@@ -41,6 +43,48 @@ export const demoRouter = router({
     vector: ctx.providers.vector,
     vectorIndex: await ctx.vectors.describe(),
   })),
+
+  /** Inserts a row inside a transaction, commits or rolls it back, then checks what survived. */
+  transaction: publicProcedure
+    .input(z.object({ outcome: z.enum(["commit", "rollback"]) }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.databaseConfigured) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "DATABASE_URL is not set" })
+      }
+
+      const email = `demo-${crypto.randomUUID()}@example.com`
+      const started = performance.now()
+      let rowsInside = 0
+      try {
+        await ctx.db.transaction(async (tx) => {
+          await tx.insert(users).values({ email, name: "Transaction demo" })
+          const inside = await tx.select({ id: users.id }).from(users).where(eq(users.email, email))
+          rowsInside = inside.length
+          if (input.outcome === "rollback") tx.rollback()
+        })
+      } catch (error) {
+        if (!(error instanceof TransactionRollbackError)) throw error
+      }
+      const ms = Math.round(performance.now() - started)
+
+      // Deleting the committed row doubles as the check for whether it persisted.
+      const persisted = await ctx.db
+        .delete(users)
+        .where(eq(users.email, email))
+        .returning({ id: users.id })
+      const [server] = await ctx.db.execute<{ version: string; neon_timeline: string | null }>(
+        sql`select version() as version, current_setting('neon.timeline_id', true) as neon_timeline`,
+      )
+
+      return {
+        outcome: input.outcome,
+        visibleInside: rowsInside === 1,
+        persisted: persisted.length === 1,
+        ms,
+        server: server?.version.split(" ").slice(0, 2).join(" ") ?? "unknown",
+        neonTimeline: server?.neon_timeline || null,
+      }
+    }),
 
   /** Fails on request, to show how each kind of fault is logged, counted and masked. */
   fault: publicProcedure

@@ -69,6 +69,18 @@ test("vector search ranks the document that shares the query's words first", asy
   expect(matches[0]?.text).toContain("alert rules")
 })
 
+test("a transaction without a database is a client fault, logged at warn", async () => {
+  const { caller, sink } = harness()
+
+  await expect(caller.demo.transaction({ outcome: "commit" })).rejects.toThrow(
+    "DATABASE_URL is not set",
+  )
+
+  expect(sink.written()).toMatchObject([
+    { level: "warn", message: "trpc.demo.transaction", fields: { code: "PRECONDITION_FAILED" } },
+  ])
+})
+
 test("the namespace rejects a value its schema forbids, and stores one it allows", async () => {
   const { caller } = harness()
 

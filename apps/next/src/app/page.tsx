@@ -2,6 +2,7 @@ import { AboutCard } from "./_demo/about-card"
 import { BoundaryCard } from "./_demo/boundary-card"
 import { FaultsCard } from "./_demo/faults-card"
 import { KvCard } from "./_demo/kv-card"
+import { PostgresCard } from "./_demo/postgres-card"
 import { RulesCard } from "./_demo/rules-card"
 import { StackCard } from "./_demo/stack-card"
 import { VectorCard } from "./_demo/vector-card"
@@ -19,6 +20,7 @@ export default function Home() {
 
       <AboutCard />
       <StackCard />
+      <PostgresCard />
       <KvCard />
       <VectorCard />
       <FaultsCard />

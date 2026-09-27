@@ -77,6 +77,11 @@ export const vectors = createMemoryVectorStore({ dimensions: 1536, metric: "cosi
 Drizzle is deliberately *not* wrapped in a port; `createPostgres` only manages the connection, and
 its `db` opens nothing until the first query.
 
+The recommended host is **Neon**, through its pooled URL. It needs no adapter of its own: Neon is
+Postgres over TCP, so `createPostgres` connects to it like any other server and
+`db.transaction(...)` works. The *Postgres transactions* demo card commits and rolls back a
+row to prove it, and names the Neon branch that answered.
+
 ### Swapping a provider
 
 1. Write the adapter implementing `KeyValueStore` — in the kit if it is generally useful, or in
@@ -221,6 +226,14 @@ data, so nothing below it touches `process.env`.
 back to a fixed secret so the demo works uncredentialed. Production has no fallback and answers 503,
 because a known secret would let anyone forge a delivery. A real provider's route should have no
 fallback at all.
+
+**Neon over TCP, not its HTTP driver.** Drizzle's `neon-http` driver would save a TCP and TLS
+handshake per cold function, but it has no interactive transactions: `db.transaction` throws, and
+`db.batch` cannot branch on an intermediate result. Transactions are worth more than the
+handshake, so Neon is reached through the pooled URL with the existing `postgres.js` adapter. The
+pooler runs in transaction mode, so a transaction keeps its connection for its whole length, and
+prepared statements are already off. A Neon adapter would be a new kit export beside `./postgres`,
+not a replacement for it.
 
 ## Conventions
 
