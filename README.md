@@ -168,6 +168,16 @@ you to fork the kit to add a provider. The app's composition root calls adapter 
 directly instead, so adding a provider is an import. The exhaustiveness the switch used to give is
 still there: an unknown adapter is an unresolved import, which is a compile error.
 
+**The app composes its own base procedures.** `apps/next/src/server/trpc/init.ts` builds a
+private `baseProcedure` from the kit's bare `procedure` and `logged` middleware, and every exported
+base procedure extends it: `publicProcedure = baseProcedure`, and a `protectedProcedure` would be
+`baseProcedure.use(requireAuth)`. They are siblings rather than one extending the other, because a
+protected procedure is not a kind of public one — anything public-only added later (anonymous rate
+limits, a CAPTCHA) must not leak into it. `logged` comes first because the first `.use` wraps the
+rest, so a call rejected by auth is still logged at `warn` and counted as `client_error`; the
+reverse order would hide exactly the traffic that probes the API. The masked server-fault message is the app's `GENERIC_ERROR_MESSAGE`,
+passed to `createTrpc`, so the wire and the render layer say the same thing.
+
 **`createTrpc` is generic over the app's context.** The middleware needs `log` and a `metrics`
 whose catalog has `trpc.requests`; the procedures need everything else. `createTrpc<C extends BaseContext>()`
 lets the kit own the first without knowing the second, so it never imports a type from the app.

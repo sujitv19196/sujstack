@@ -47,7 +47,7 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/ports/db-core` | Port. `KeyValueStore`, `VectorStore`, contract suites. Zero runtime dependencies. |
 | `kit/ports/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
 | `kit/ports/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
-| `kit/ports/trpc-core` | `createTrpc<Context>()`: logging/counting middleware, error mask, `trpcCounterDefs`. |
+| `kit/ports/trpc-core` | `createTrpc<Context>()`: error mask, bare `procedure`, `logged` middleware, `trpcCounterDefs`. |
 | `kit/adapters/db` | `@sujstack/db-adapters`: `./kv/memory`, `./vector/memory`, `./postgres`. |
 | `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
@@ -69,8 +69,12 @@ Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL di
 `db`, so creating it never opens a connection; the first *query* throws if `url` was `undefined`.
 
 The app's tRPC `Context` (`apps/next/src/server/trpc/context.ts`) extends the kit's `BaseContext`
-(`log`, `metrics`), and `server/trpc/init.ts` is `createTrpc<Context>()`. The kit never imports a
-type from the app — preserve this.
+(`log`, `metrics`). `server/trpc/init.ts` calls `createTrpc<Context>()` and composes
+a private `baseProcedure = t.procedure.use(t.logged)`. Every exported base procedure is built there
+by extending `baseProcedure` (`publicProcedure = baseProcedure`,
+`protectedProcedure = baseProcedure.use(requireAuth)`) — siblings, not one extending the other, and
+never from the bare `procedure`, or its calls go unlogged and uncounted. `logged` must stay the
+first `.use`, so auth rejections are logged and counted too. The kit never imports a type from the app — preserve this.
 
 ### Observability
 
@@ -111,7 +115,7 @@ middleware counts `trpc.requests{outcome}` for every call that reached a procedu
 `errorFormatter` in `kit/ports/trpc-core/src/create-trpc.ts` replaces an `INTERNAL_SERVER_ERROR`'s
 message and strips its stack, so neither reaches the browser while the server keeps both in the log.
 Client faults keep their message, which the caller needs. `apps/next` also masks at render via
-`GENERIC_ERROR_MESSAGE`, but that alone would hide a server fault from the user and not from the
+`GENERIC_ERROR_MESSAGE` (the same string is passed to `createTrpc`), but that alone would hide a server fault from the user and not from the
 network tab.
 
 ## Conventions
