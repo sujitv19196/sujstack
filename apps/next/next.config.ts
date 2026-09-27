@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@sujstack/db",
     "@sujstack/db-core",
+    "@sujstack/metrics",
+    "@sujstack/metrics-core",
     "@sujstack/obs",
     "@sujstack/obs-core",
     "@sujstack/trpc",

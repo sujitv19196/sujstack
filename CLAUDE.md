@@ -18,6 +18,8 @@ bun test -t "regex"         # one test by name
 bun run db:generate         # schema → SQL migration (no connection needed)
 bun run db:check            # fails if migrations have drifted from the schema
 bun run db:migrate | db:push | db:studio   # require DATABASE_URL
+bun run metrics:rules       # catalog → apps/metrics/rules.yaml (commit it)
+bun run metrics:check       # fails if rules.yaml has drifted from the catalog
 ```
 
 There is **no build step for library packages**. They are consumed as TypeScript source and compiled
@@ -34,6 +36,8 @@ Bun workspaces (`apps/*`, `lib/*`). The organising idea is **Ports and Adapters*
 | `apps/db` | Adapters, Drizzle schema, composition root. |
 | `lib/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
 | `apps/obs` | Adapters (console, Sentry), composition root. |
+| `lib/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
+| `apps/metrics` | Adapters (console, OTLP), counter + rule catalog, composition root. |
 | `lib/trpc` | Router, `Context`, React bindings. |
 | `lib/ui` | Tailwind v4 theme + shadcn/ui. |
 | `apps/next` | The application. |
@@ -80,6 +84,15 @@ the stack and fingerprint on it. Do not serialize it in the facade.
 
 Alerting is not modelled in code. Sentry is inert without a DSN, so the app boots uncredentialed.
 `@sujstack/obs-core/testing` exports `createMemorySink` for asserting what code logged.
+
+### Metrics
+
+Unlike logs, metrics **do** have a catalog: `apps/metrics/src/catalog.ts` declares every counter
+and every alert rule. Labels are a type parameter; a label typed as plain `string` is a compile
+error, which is the cardinality guard. Rules reference counters, never name strings, and compile to
+`apps/metrics/rules.yaml` — after changing the catalog, run `bun run metrics:rules` and commit the
+file. `promName` in `lib/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation.
+The tRPC middleware counts `trpc.requests{outcome}` for every call that reached a procedure.
 
 ### Errors across the wire
 

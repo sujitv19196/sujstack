@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test"
 import { createKv, createVectorStore, db } from "@sujstack/db"
+import { counters } from "@sujstack/metrics"
+import { createMetrics } from "@sujstack/metrics-core"
+import { createMemorySink as createMetricSink } from "@sujstack/metrics-core/testing"
 import { createLog } from "@sujstack/obs-core"
 import { createMemorySink } from "@sujstack/obs-core/testing"
 import type { Context } from "../context"
@@ -11,6 +14,7 @@ const createCaller = createCallerFactory(appRouter)
 /** `db` is a lazy Proxy, so naming it here opens no connection. */
 function harness(databaseConfigured: boolean) {
   const sink = createMemorySink()
+  const metricSink = createMetricSink()
   const context: Context = {
     db,
     kv: createKv({ provider: "memory" }),
@@ -19,8 +23,9 @@ function harness(databaseConfigured: boolean) {
     providers: { kv: "memory", vector: "memory" },
     headers: new Headers(),
     log: createLog([sink]),
+    metrics: createMetrics(counters, [metricSink]),
   }
-  return { caller: createCaller(context), sink }
+  return { caller: createCaller(context), sink, metricSink }
 }
 
 test("a successful call is logged once, under its own route", async () => {
@@ -52,4 +57,21 @@ test("a client fault is logged at warn, not error", async () => {
   expect(failure).toMatchObject({ level: "warn", fields: { code: "BAD_REQUEST" } })
   // The stack would point at the validator, so a client fault carries no cause.
   expect(failure).not.toHaveProperty("cause")
+})
+
+test("each resolved call counts once, labelled by outcome", async () => {
+  const ok = harness(true)
+  const failed = harness(false)
+
+  await ok.caller.health.check()
+  await expect(ok.caller.health.kvRoundTrip({ value: "" })).rejects.toThrow()
+  await expect(failed.caller.health.check()).rejects.toThrow()
+
+  expect(ok.metricSink.added()).toMatchObject([
+    { name: "trpc.requests", labels: { outcome: "ok" }, value: 1 },
+    { name: "trpc.requests", labels: { outcome: "client_error" }, value: 1 },
+  ])
+  expect(failed.metricSink.added()).toMatchObject([
+    { name: "trpc.requests", labels: { outcome: "server_error" }, value: 1 },
+  ])
 })

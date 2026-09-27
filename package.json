@@ -20,7 +20,9 @@
     "db:check": "bun run --filter @sujstack/db db:check",
     "db:migrate": "bun run --filter @sujstack/db db:migrate",
     "db:push": "bun run --filter @sujstack/db db:push",
-    "db:studio": "bun run --filter @sujstack/db db:studio"
+    "db:studio": "bun run --filter @sujstack/db db:studio",
+    "metrics:rules": "bun run --filter @sujstack/metrics metrics:rules",
+    "metrics:check": "bun run --filter @sujstack/metrics metrics:check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.9",

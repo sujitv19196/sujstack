@@ -1,5 +1,6 @@
 import { db, isDatabaseConfigured } from "@sujstack/db"
 import { kv, kvConfig, vectorConfig, vectors } from "@sujstack/db/runtime"
+import { metrics } from "@sujstack/metrics/runtime"
 import { log } from "@sujstack/obs/runtime"
 import { appRouter, type Context } from "@sujstack/trpc/server"
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
@@ -18,6 +19,7 @@ function handler(request: Request) {
       providers: { kv: kvConfig.provider, vector: vectorConfig.provider },
       headers: req.headers,
       log,
+      metrics,
     }),
     onError: ({ error, path, type }) => {
       // Anything that reached a procedure was already logged under `trpc.<path>` by the

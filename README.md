@@ -23,6 +23,8 @@ bun run dev          # http://localhost:3000
 | `bun run db:generate` | schema → SQL migration (no connection needed) |
 | `bun run db:check` | fails if migrations have drifted from the schema |
 | `bun run db:migrate` / `push` / `studio` | require `DATABASE_URL` |
+| `bun run metrics:rules` | catalog → `apps/metrics/rules.yaml` |
+| `bun run metrics:check` | fails if `rules.yaml` has drifted from the catalog |
 
 ## Layout
 
@@ -32,6 +34,8 @@ bun run dev          # http://localhost:3000
 | `apps/db` — `@sujstack/db` | **Adapters**, Drizzle schema, and the composition root. |
 | `lib/obs-core` — `@sujstack/obs-core` | **Port.** One event sink. Interfaces only. No third-party runtime dependencies. |
 | `apps/obs` — `@sujstack/obs` | **Adapters** and the composition root. |
+| `lib/metrics-core` — `@sujstack/metrics-core` | **Port.** Counter sink, typed counters, alert-rule builders. No third-party runtime dependencies. |
+| `apps/metrics` — `@sujstack/metrics` | **Adapters**, the counter + rule catalog, and the composition root. |
 | `lib/trpc` — `@sujstack/trpc` | Router, context, React bindings. |
 | `lib/ui` — `@sujstack/ui` | Tailwind v4 theme + shadcn/ui components. |
 | `apps/next` — `@sujstack/next` | The application. |
@@ -107,6 +111,51 @@ would carry no information the import does not. Dropping Sentry means deleting
 `@sujstack/obs-core/testing` ships `createMemorySink` for asserting what your own code logged. It is
 a test double, not an adapter — unlike `createMemoryKv`, nothing would ever run it.
 
+## Metrics
+
+Metrics are for alerting; logs are for explaining. Every counter and every alert rule is declared in
+`apps/metrics/src/catalog.ts`, and the monitoring backend only evaluates and displays them.
+
+```ts
+export const counters = defineCatalog({
+  "trpc.requests": defineCounter<{ outcome: "ok" | "client_error" | "server_error" }>({
+    description: "tRPC procedure calls that reached a procedure, by outcome",
+  }),
+})
+
+metrics.increment("trpc.requests", { outcome: "ok" })
+```
+
+Rules are built from typed counters, never from metric-name strings, and compile to a standard
+Prometheus rule file that Prometheus, Mimir, Grafana Cloud and Thanos all load:
+
+```ts
+{
+  alert: "TrpcServerErrorRatio",
+  severity: "page",
+  for: "10m",
+  expr: ratioAbove(select(requests, { outcome: "server_error" }), requests, { window: "5m", threshold: 0.05 }),
+  summary: "More than 5% of tRPC calls are failing with a server error",
+}
+```
+
+`rateAbove`, `ratioAbove` and `absent` cover the common shapes; anything else uses the `promql`
+tag, whose interpolations must be counters or `select(...)`. `bun run metrics:rules` writes
+`apps/metrics/rules.yaml`, which is committed; `bun run metrics:check` fails when it is stale.
+Uploading it to the backend (`mimirtool rules load`, `cortextool`, or the Prometheus config) is
+deliberately outside the code. Routing on `severity` belongs to Alertmanager or Grafana
+notification policies.
+
+In development increments print to the console. In production they are pushed over OTLP/HTTP when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set (with `OTEL_EXPORTER_OTLP_HEADERS` for credentials), and
+dropped when it is not. `@sujstack/metrics-core/testing` ships `createMemorySink`.
+
+### Adding a counter or rule
+
+1. Add a `defineCounter<Labels>(...)` entry to the catalog, and a rule to `rules` if it should alert.
+2. Call `metrics.increment(...)` — the key and labels are type-checked against the catalog.
+3. Run `bun run metrics:rules` and commit `rules.yaml`.
+
 ### UI components
 
 `lib/ui/src/index.ts` re-exports each component file with `export *`, so everything a file
@@ -155,9 +204,36 @@ stack. Making the cause a required parameter gives the `Error` a home, and the f
 through untouched so Sentry can parse the real stack and fingerprint on it — a pre-serialised object
 would break both. The console adapter relies on the runtime printing `cause` chains natively.
 
-**Alerting is not declared in code.** Thresholds and routing belong to the monitoring backend,
-which evaluates rules over what the sinks deliver, rather than to a field that nothing in this
-process reads.
+**Metrics are separate from logs, and they do have a catalog.** A log message can be free-form
+because nothing refers back to it. An alert rule does refer back to a metric, so a metric needs a
+declared, stable key: renaming a counter must break the rule that watches it at compile time, not
+leave the rule silently watching nothing.
+
+**Alert rules are declared in code and evaluated by the backend.** Code is the source of truth, so
+the rules live beside the counters they reference. Evaluation does not: an in-process evaluator
+would lose its windows on every restart and see only one instance's traffic. The rules compile to
+Prometheus rule YAML, which every Prometheus-compatible backend loads and Grafana displays, and
+the generated file is committed and drift-checked the same way migrations are.
+
+**Rules are built with typed builders, not written as YAML.** Hand-written PromQL names metrics
+as strings, and those strings are not the names in code: OTLP ingestion rewrites
+`trpc.requests` to `trpc_requests_total`. `promName` is the one place that translation lives. The
+builders are deliberately thin — there is no PromQL AST — and the `promql` tag is the escape
+hatch that keeps metric references typed while allowing any expression.
+
+**Labels are a type parameter, not a runtime value list.** `defineCounter<{ outcome: "ok" | "error" }>`
+gives the same compile-time checking at `increment` and in `select` as an `as const` array would,
+without the ceremony, and it can reuse unions the domain already has. A label typed as plain
+`string` is a compile error, so an unbounded label (a user id, a raw path) cannot be declared at
+all — that is the cardinality guard. The cost is no runtime validation and no way to enumerate a
+label's values; nothing needs either yet. This is also why `trpc.requests` has no `path` label:
+the middleware only has `path` as a `string`, and the per-path breakdown lives in the logs.
+
+**Counters are cumulative, one series per instance.** Prometheus and Mimir expect cumulative
+temporality. Each process sets a random `service.instance.id`, which becomes the `instance` label,
+so two instances' cumulative totals never collide in one series; rules aggregate with `sum(...)`.
+On serverless this means one short-lived series per instance, and the periodic reader can lose the
+last export interval when a function is frozen — an adapter concern, like the note on `write()`.
 
 **Errors are masked at the tRPC boundary, not only at render.** `errorFormatter` in
 `lib/trpc/src/init.ts` replaces an `INTERNAL_SERVER_ERROR`'s message and strips its stack, so

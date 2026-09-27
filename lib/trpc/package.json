@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@sujstack/db": "workspace:*",
+    "@sujstack/metrics": "workspace:*",
+    "@sujstack/metrics-core": "workspace:*",
     "@sujstack/obs": "workspace:*",
     "@sujstack/obs-core": "workspace:*",
     "@types/bun": "latest",

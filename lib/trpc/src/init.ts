@@ -14,17 +14,21 @@ const t = initTRPC.context<Context>().create({
 })
 
 /**
- * Emits one `trpc.<path>` event per resolved call. Errors that never reach a procedure are logged
- * by the handler's `onError` under the flat `trpc.failed` message instead.
+ * Emits one `trpc.<path>` event and one `trpc.requests` increment per resolved call. Errors that
+ * never reach a procedure are logged by the handler's `onError` under the flat `trpc.failed`
+ * message instead, and are not counted.
  */
 const logged = t.middleware(async ({ ctx, path, type, next }) => {
   const startedAt = performance.now()
   const result = await next()
   const fields = { path, type, durationMs: Math.round(performance.now() - startedAt) }
 
-  if (result.ok) ctx.log.info(`trpc.${path}`, fields)
-  else if (result.error.code === "INTERNAL_SERVER_ERROR") {
+  if (result.ok) {
+    ctx.log.info(`trpc.${path}`, fields)
+    ctx.metrics.increment("trpc.requests", { outcome: "ok" })
+  } else if (result.error.code === "INTERNAL_SERVER_ERROR") {
     ctx.log.error(`trpc.${path}`, result.error, { ...fields, code: result.error.code })
+    ctx.metrics.increment("trpc.requests", { outcome: "server_error" })
   } else {
     // A client fault is not a system failure. Logging bad input at error level is the flood
     // this module exists to prevent, and the stack points at the validator, not at a bug.
@@ -33,6 +37,7 @@ const logged = t.middleware(async ({ ctx, path, type, next }) => {
       code: result.error.code,
       detail: result.error.message,
     })
+    ctx.metrics.increment("trpc.requests", { outcome: "client_error" })
   }
 
   return result
