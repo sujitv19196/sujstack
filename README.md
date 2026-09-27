@@ -1,4 +1,4 @@
-# sujstack-demo
+# sujstack
 
 Bun · Next 16 · React 19 · TypeScript 7 · Drizzle · tRPC v11 · Tailwind v4 · Biome
 
@@ -13,7 +13,7 @@ here as the `kit/` submodule. Fork or template this repo; take kit updates by bu
 ## Quick start
 
 ```bash
-git clone --recurse-submodules https://github.com/sujitv19196/sujstack-demo.git
+git clone --recurse-submodules git@github.com:sujitv19196/sujstack.git
 bun install
 bun run dev          # http://localhost:3000
 ```
