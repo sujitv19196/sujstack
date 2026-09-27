@@ -37,6 +37,10 @@ inside `kit/`, run `bun run typecheck && bun test && bun run check` there, commi
 the kit's remote first, then commit the SHA bump in this repo. If an app change seems to need a
 kit change, stop and say so.
 
+**Pin `kit/` to a release tag**, never an untagged commit. To update: `git -C kit fetch --tags`,
+`git -C kit checkout vX.Y.Z`, run the full verify loop, then commit the pointer as
+`chore: bump kit to vX.Y.Z`. `git -C kit describe --tags` shows which release is pinned.
+
 ## Architecture
 
 Bun workspaces (`apps/*`, `kit/ports/*`, `kit/adapters/*`). The organising idea is **Ports and
