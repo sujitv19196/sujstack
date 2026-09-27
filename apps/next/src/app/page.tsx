@@ -1,3 +1,4 @@
+import { AboutCard } from "./_demo/about-card"
 import { BoundaryCard } from "./_demo/boundary-card"
 import { FaultsCard } from "./_demo/faults-card"
 import { KvCard } from "./_demo/kv-card"
@@ -15,6 +16,7 @@ export default function Home() {
         </p>
       </div>
 
+      <AboutCard />
       <StackCard />
       <KvCard />
       <VectorCard />
