@@ -17,6 +17,10 @@ terraform {
       source  = "kislerdm/neon"
       version = "~> 0.18"
     }
+    railway = {
+      source  = "terraform-community-providers/railway"
+      version = "~> 0.6"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -24,6 +28,7 @@ terraform {
   }
 }
 
-# Both read their token from the environment: VERCEL_API_TOKEN and NEON_API_KEY.
+# Each reads its token from the environment: VERCEL_API_TOKEN, NEON_API_KEY and RAILWAY_TOKEN.
 provider "vercel" {}
 provider "neon" {}
+provider "railway" {}

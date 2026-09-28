@@ -13,6 +13,7 @@ export const providers = { kv: "memory", vector: "memory" } as const
 export const postgres = createPostgres({ url: env.DATABASE_URL, schema })
 export const db = postgres.db
 export type Database = typeof db
+export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0]
 
 export const kv = createMemoryKv()
 export const vectors = createMemoryVectorStore({ dimensions: 1536, metric: "cosine" })

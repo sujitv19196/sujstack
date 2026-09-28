@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
 import { routes } from "../../../../routes"
 import { db, kv, postgres, providers, vectors } from "../../../../server/db/runtime"
+import { jobs } from "../../../../server/jobs/runtime"
 import { metrics } from "../../../../server/metrics/runtime"
 import { log } from "../../../../server/obs"
 import type { Context } from "../../../../server/trpc/context"
@@ -17,6 +18,7 @@ function handler(request: Request) {
       db,
       kv,
       vectors,
+      jobs,
       databaseConfigured: postgres.isConfigured,
       providers,
       headers: req.headers,

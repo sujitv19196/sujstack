@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "bun run --filter @sujstack/next dev",
+    "worker": "bun run --filter @sujstack/worker dev",
     "build": "bun run --filter @sujstack/next build",
     "start": "bun run --filter @sujstack/next start",
     "typecheck": "bun run --filter '*' typecheck",

@@ -2,12 +2,14 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { createMemoryKv } from "@sujstack/db-adapters/kv/memory"
 import { createPostgres } from "@sujstack/db-adapters/postgres"
 import { createMemoryVectorStore } from "@sujstack/db-adapters/vector/memory"
+import { createMemoryJobs } from "@sujstack/jobs-adapters/memory"
 import { createMetrics } from "@sujstack/metrics-core"
 import { createMemorySink as createMetricSink } from "@sujstack/metrics-core/testing"
 import { createLog } from "@sujstack/obs-core"
 import { createMemorySink } from "@sujstack/obs-core/testing"
 import { createWebhookHandler } from "@sujstack/webhook-core"
 import * as schema from "../../db/schema"
+import { policies } from "../../jobs/catalog"
 import { counters } from "../../metrics/catalog"
 import { createDemoVerifier, handleDemoEvent } from "../../webhooks/demo"
 import type { Context } from "../context"
@@ -24,6 +26,7 @@ function harness(headers = new Headers()) {
     db: createPostgres({ url: undefined, schema }).db,
     kv: createMemoryKv(),
     vectors: createMemoryVectorStore({ dimensions: 64, metric: "cosine" }),
+    jobs: createMemoryJobs({ policies }).queue,
     databaseConfigured: false,
     providers: { kv: "memory", vector: "memory" },
     headers,
@@ -78,6 +81,16 @@ test("a transaction without a database is a client fault, logged at warn", async
 
   expect(sink.written()).toMatchObject([
     { level: "warn", message: "trpc.demo.transaction", fields: { code: "PRECONDITION_FAILED" } },
+  ])
+})
+
+test("enqueueing a job without a database is a client fault, logged at warn", async () => {
+  const { caller, sink } = harness()
+
+  await expect(caller.demo.jobEnqueue({ fail: false })).rejects.toThrow("DATABASE_URL is not set")
+
+  expect(sink.written()).toMatchObject([
+    { level: "warn", message: "trpc.demo.jobEnqueue", fields: { code: "PRECONDITION_FAILED" } },
   ])
 })
 

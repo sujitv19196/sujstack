@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Name of the Vercel project and the Neon project."
+  description = "Name of the Vercel, Neon and Railway projects."
   type        = string
   default     = "sujstack"
 }
@@ -26,6 +26,12 @@ variable "vercel_region" {
   description = "Vercel Functions region. Keep it next to neon_region."
   type        = string
   default     = "iad1"
+}
+
+variable "railway_region" {
+  description = "Railway region for apps/worker. Keep it next to neon_region."
+  type        = string
+  default     = "us-east4-eqdc4a"
 }
 
 variable "sentry_dsn" {

@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 bun install
 bun run dev                 # Next app on :3000
+bun run worker              # apps/worker on :3001, reading apps/next/.env.local (needs DATABASE_URL)
 bun run build               # production build; also the fastest full integration check
 bun run typecheck           # tsc --noEmit in every workspace package
 bun run check               # Biome lint + format (read-only)
@@ -55,16 +56,20 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/ports/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
 | `kit/ports/trpc-core` | `createTrpc<Context>()`: error mask, bare `procedure`, `logged` middleware, `TrpcCall`. |
 | `kit/ports/webhook-core` | `WebhookVerifier`, logged `createWebhookHandler`, `WebhookDelivery`, `runVerifierContract`. No adapters. |
+| `kit/ports/jobs-core` | `JobQueue`, `JobWorker`, `loggedHandlers`, `JobRun`, `runJobsContract`. |
 | `kit/adapters/db` | `@sujstack/db-adapters`: `./kv/memory`, `./vector/memory`, `./postgres`. |
 | `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
-| `apps/next` | The application: composition roots, schema, catalog, routers, UI. |
-| `infra/` | Terraform: the Vercel project, Neon project and branches, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
+| `kit/adapters/jobs` | `@sujstack/jobs-adapters`: `./memory`, `./pg-boss`. |
+| `apps/next` | The application: composition roots, schema, catalogs, routers, UI. Exports `./jobs` and `./metrics` (the catalogs) for `apps/worker`. |
+| `apps/worker` | Long-running Bun + Express process on Railway: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
+| `infra/` | Terraform: the Vercel project, Neon project and branches, the Railway worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a
-provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts` and
-`server/metrics/runtime.ts` and `server/webhooks/runtime.ts` — the only modules that name a concrete adapter, read `process.env`,
+provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts`,
+`server/metrics/runtime.ts`, `server/webhooks/runtime.ts` and `server/jobs/runtime.ts`, plus
+`apps/worker/src/index.ts` — the only modules that name a concrete adapter, read `process.env`,
 and own the singletons.
 
 Adding a provider means: write the adapter, then call it in the composition root. There is
@@ -120,6 +125,15 @@ counters, never name strings, and compile to `apps/next/rules.yaml` — after ch
 run `bun run metrics:rules` and commit the file. `promName` in
 `kit/ports/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation. `countCalls`
 in `server/trpc/init.ts` counts `trpc.requests{outcome}` for every call that reached a procedure.
+
+### Jobs
+
+`apps/next/src/server/jobs/catalog.ts` declares every job: `Jobs` (name → payload) and `policies`
+(`retryLimit`, `timeoutSeconds`). `ctx.jobs` enqueues (pass `{ tx }` inside `ctx.db.transaction` to
+make the job commit with the write); `apps/worker/src/handlers.ts` must have a handler for every
+name or it does not compile. The worker wraps handlers in `loggedHandlers` (`job.<name>`) and
+counts each attempt in `jobs.processed`. Its `DATABASE_URL` must be a direct connection, never the
+pooler. Queues are created only by the worker on start, so enqueueing fails until it has run once.
 
 ### Errors across the wire
 

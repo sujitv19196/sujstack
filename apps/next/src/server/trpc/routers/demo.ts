@@ -86,6 +86,23 @@ export const demoRouter = router({
       }
     }),
 
+  /** Enqueues a sleep for apps/worker, in a transaction. `fail` makes every attempt throw. */
+  jobEnqueue: publicProcedure
+    .input(z.object({ fail: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.databaseConfigured) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "DATABASE_URL is not set" })
+      }
+      const id = await ctx.db.transaction((tx) =>
+        ctx.jobs.enqueue("demo.sleep", { ms: 2_000, fail: input.fail }, { tx }),
+      )
+      return { id }
+    }),
+
+  jobStatus: publicProcedure
+    .input(z.object({ id: z.uuid() }))
+    .query(({ ctx, input }) => ctx.jobs.status("demo.sleep", input.id)),
+
   /** Fails on request, to show how each kind of fault is logged, counted and masked. */
   fault: publicProcedure
     .input(z.object({ kind: z.enum(["none", "client", "server"]) }))

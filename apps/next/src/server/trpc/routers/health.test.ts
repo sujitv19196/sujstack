@@ -2,11 +2,13 @@ import { expect, test } from "bun:test"
 import { createMemoryKv } from "@sujstack/db-adapters/kv/memory"
 import { createPostgres } from "@sujstack/db-adapters/postgres"
 import { createMemoryVectorStore } from "@sujstack/db-adapters/vector/memory"
+import { createMemoryJobs } from "@sujstack/jobs-adapters/memory"
 import { createMetrics } from "@sujstack/metrics-core"
 import { createMemorySink as createMetricSink } from "@sujstack/metrics-core/testing"
 import { createLog } from "@sujstack/obs-core"
 import { createMemorySink } from "@sujstack/obs-core/testing"
 import * as schema from "../../db/schema"
+import { policies } from "../../jobs/catalog"
 import { counters } from "../../metrics/catalog"
 import type { Context } from "../context"
 import { countCalls, createCallerFactory } from "../init"
@@ -23,6 +25,7 @@ function harness(databaseConfigured: boolean) {
     db: createPostgres({ url: undefined, schema }).db,
     kv: createMemoryKv(),
     vectors: createMemoryVectorStore({ dimensions: 8, metric: "cosine" }),
+    jobs: createMemoryJobs({ policies }).queue,
     databaseConfigured,
     providers: { kv: "memory", vector: "memory" },
     headers: new Headers(),

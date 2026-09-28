@@ -9,3 +9,10 @@ groups:
           severity: "page"
         annotations:
           summary: "More than 5% of tRPC calls are failing with a server error"
+      - alert: "JobsFailing"
+        expr: "sum(rate(jobs_processed_total{outcome=\"failed\"}[15m])) > 0"
+        for: "0m"
+        labels:
+          severity: "ticket"
+        annotations:
+          summary: "A background job has exhausted its retries"

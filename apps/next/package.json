@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./jobs": "./src/server/jobs/catalog.ts",
+    "./metrics": "./src/server/metrics/catalog.ts"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,6 +24,8 @@
     "@sentry/nextjs": "10.70.0",
     "@sujstack/db-adapters": "workspace:*",
     "@sujstack/db-core": "workspace:*",
+    "@sujstack/jobs-adapters": "workspace:*",
+    "@sujstack/jobs-core": "workspace:*",
     "@sujstack/metrics-adapters": "workspace:*",
     "@sujstack/metrics-core": "workspace:*",
     "@sujstack/obs-adapters": "workspace:*",
