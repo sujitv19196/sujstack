@@ -63,7 +63,7 @@ apps/next/
   src/components/ui/  src/lib/utils.ts          # shadcn/ui
 apps/worker/
   src/index.ts                                  # composition root: worker, log, metrics, Express
-  src/handlers.ts  src/server.ts  railway.json  # one handler per job, /health, Railway build
+  src/handlers.ts  src/server.ts                # one handler per job, /health
 ```
 
 Kit packages are consumed as TypeScript source with no build step; Next compiles them via
@@ -227,7 +227,7 @@ connect them. There are two separate loops:
 
 | Loop | Triggered by | Does |
 | --- | --- | --- |
-| App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. Railway redeploys the worker when a push to `main` touches a path in `apps/worker/railway.json`'s `watchPatterns`. |
+| App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. Railway redeploys the worker on every push to `main`. |
 | Infra changes | merging a PR that touches `infra/**` | `.github/workflows/infra.yml` runs `terraform plan` on the PR (posted as a comment) and `terraform apply` on merge. |
 
 Plans and applies execute remotely in HCP Terraform, which holds the state and the provider tokens.
@@ -403,6 +403,16 @@ runs it from this repo with no Dockerfile, restarts it on a crash, and is declar
 like everything else. The worker is Express rather than bare `Bun.serve` so the routes it grows —
 an admin trigger, a queue dashboard — have the ecosystem's middleware. Vercel Queues remain a
 fit for short, bursty fan-out handled by functions; it would be a second `JobQueue` adapter.
+
+**The worker's Railway settings are env vars, not a config file.** Railway no longer accepts
+`railway.json` for new services, and its replacement, `.railway/railway.ts`, is applied by the
+Railway CLI, which would put a second infrastructure tool beside Terraform. The Terraform provider
+cannot set a start command or a healthcheck, but Railpack reads `RAILPACK_BUILD_CMD` and
+`RAILPACK_START_CMD` from the service's variables, which Terraform does set. Two settings are lost:
+a deploy goes live when the process starts rather than when `/health` answers, and every push to
+`main` redeploys the worker, not only one that touches its code. A redeploy stops taking jobs and
+waits for those in flight, so it costs seconds. Railway's API can still set both; add that call to
+`infra/` if a bad deploy ever goes live unnoticed.
 
 **Jobs ride on Postgres.** pg-boss keeps jobs in the database the app already has, so a job can be
 enqueued in the same transaction as the write it depends on, and its state and output are rows

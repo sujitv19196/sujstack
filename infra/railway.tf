@@ -2,13 +2,13 @@ resource "railway_project" "app" {
   name = var.name
 }
 
-# Builds and runs apps/worker from the repo root, following apps/worker/railway.json.
+# Builds from the repo root, so the workspace and the kit submodule are in the build. The build and
+# start commands are the RAILPACK_* variables below.
 resource "railway_service" "worker" {
   name               = "worker"
   project_id         = railway_project.app.id
   source_repo        = var.github_repo
   source_repo_branch = "main"
-  config_path        = "apps/worker/railway.json"
 
   regions = [
     { region = var.railway_region, num_replicas = 1 },
@@ -20,6 +20,9 @@ locals {
     {
       NODE_ENV     = "production"
       DATABASE_URL = local.database_urls.production.unpooled
+      # Without these, Railpack would run the root package.json's `build` and `start`: the Next app.
+      RAILPACK_BUILD_CMD = "echo 'apps/worker runs from source'"
+      RAILPACK_START_CMD = "bun run --cwd apps/worker start"
     },
     {
       for key, value in {
