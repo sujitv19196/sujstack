@@ -62,8 +62,8 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
 | `kit/adapters/jobs` | `@sujstack/jobs-adapters`: `./memory`, `./pg-boss`. |
 | `apps/next` | The application: composition roots, schema, catalogs, routers, UI. Exports `./jobs` and `./metrics` (the catalogs) for `apps/worker`. |
-| `apps/worker` | Long-running Bun + Express process on Railway: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
-| `infra/` | Terraform: the Vercel project, Neon project and branches, the Railway worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
+| `apps/worker` | Long-running Bun + Express process on Render, off until `worker_enabled`: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
+| `infra/` | Terraform: the Vercel project, Neon project and branches, the Render worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a

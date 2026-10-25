@@ -17,9 +17,9 @@ terraform {
       source  = "kislerdm/neon"
       version = "~> 0.18"
     }
-    railway = {
-      source  = "terraform-community-providers/railway"
-      version = "~> 0.6"
+    render = {
+      source  = "render-oss/render"
+      version = "~> 1.9"
     }
     random = {
       source  = "hashicorp/random"
@@ -28,7 +28,9 @@ terraform {
   }
 }
 
-# Each reads its token from the environment: VERCEL_API_TOKEN, NEON_API_KEY and RAILWAY_TOKEN.
+# Each reads its token from the environment: VERCEL_API_TOKEN, NEON_API_KEY and RENDER_API_KEY.
 provider "vercel" {}
 provider "neon" {}
-provider "railway" {}
+provider "render" {
+  owner_id = var.render_owner_id
+}

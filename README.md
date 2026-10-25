@@ -46,7 +46,7 @@ in `_app.ts`, to start clean.
 | **Adapters** — memory, Postgres, pg-boss, console, Sentry, OTLP | kit | `kit/adapters/*` |
 | **Composition roots**, schema, catalogs, routers, UI, pages | you | `apps/next` |
 | **Worker** — background job handlers, `/health` | you | `apps/worker` |
-| **Infrastructure** — Vercel, Neon and Railway projects, env vars | you | `infra/` |
+| **Infrastructure** — Vercel, Neon and Render projects, env vars | you | `infra/` |
 
 Everything under `kit/` is someone else's code: change it upstream, not here. Everything under
 `apps/next` is yours:
@@ -187,7 +187,7 @@ curl -i localhost:3000/api/webhooks/demo -H "x-demo-signature: sha256=$sig" -d "
 
 ### Background jobs
 
-Work that outlives a request runs in `apps/worker`, a long-running Bun + Express process on Railway
+Work that outlives a request runs in `apps/worker`, a long-running Bun + Express process on Render
 that takes jobs from Postgres through the kit's pg-boss adapter. The job catalog,
 `apps/next/src/server/jobs/catalog.ts`, is the contract between the two apps: `Jobs` maps each name
 to its payload, and `policies` gives each a `retryLimit` and a `timeoutSeconds`. To add a job:
@@ -222,12 +222,13 @@ client is built once on mount, so changing the prop afterwards has no effect.
 
 `infra/` declares everything the deployment needs: the Vercel project (linked to this repo), a Neon
 project with a `main` branch for production and a `preview` branch shared by every preview
-deployment, a Railway project running `apps/worker` against production, and the env vars that
+deployment, a Render background worker running `apps/worker` against production (off until
+`worker_enabled`), and the env vars that
 connect them. There are two separate loops:
 
 | Loop | Triggered by | Does |
 | --- | --- | --- |
-| App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. Railway redeploys the worker on every push to `main`. |
+| App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. Render redeploys the worker when a push to `main` touches a path in its build filter. |
 | Infra changes | merging a PR that touches `infra/**` | `.github/workflows/infra.yml` runs `terraform plan` on the PR (posted as a comment) and `terraform apply` on merge. |
 
 Plans and applies execute remotely in HCP Terraform, which holds the state and the provider tokens.
@@ -238,7 +239,7 @@ deploy hook, since env vars only reach deployments built after they changed.
 
 Terraform cannot create the accounts it signs in with, so a repository created from this template
 starts with a few manual steps. Each step uses a command where one exists and the web UI where
-none does. Never create the Vercel, Neon or Railway project by hand: Terraform creates them on the
+none does. Never create the Vercel, Neon or Render project by hand: Terraform creates them on the
 first apply, and a hand-made one would collide with it. Accounts and tokens you already have from another
 project can be reused.
 
@@ -248,8 +249,9 @@ Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub
 
 - `versions.tf`: `organization` (your HCP Terraform organization) and the workspace `name` (unique
   to this project).
-- `variables.tf`: `name` (what the Vercel, Neon and Railway projects are called), `github_repo`
-  (`owner/name`) and `neon_org_id` (from `npx neonctl orgs list`, after step 3).
+- `variables.tf`: `name` (what the Vercel, Neon and Render projects are called), `github_repo`
+  (`owner/name`), `neon_org_id` (from `npx neonctl orgs list`, after step 3) and `render_owner_id`
+  (after step 4).
 
 **2. Vercel** (UI only).
 
@@ -264,13 +266,14 @@ Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub
 settings → API keys → Create new API key**, and copy it. A key created inside a project's settings
 is project-scoped and cannot create projects, so the first apply fails with it.
 
-**4. Railway** (UI only).
+**4. Render** (UI only).
 
-1. Sign up at railway.com with GitHub.
-2. Let Railway read the repository: github.com/apps/railway-app → **Configure** → your account →
+1. Sign up at render.com with GitHub.
+2. Let Render read the repository: github.com/apps/render → **Configure** → your account →
    *Repository access* → add the repository.
-3. Create a workspace token: **Account Settings → Tokens**, choose your workspace, **Create**, and
-   copy it. A workspace token needs no workspace id in `infra/`.
+3. Create an API key: **Account Settings → API Keys → Create API Key**, and copy it.
+4. Copy the owner ID (`tea-…` or `usr-…`) from the dashboard URL into `render_owner_id` in
+   `variables.tf`.
 
 **5. HCP Terraform.**
 
@@ -284,7 +287,7 @@ is project-scoped and cannot create projects, so the first apply fails with it.
    ```
 
 3. Add the provider tokens (UI only): workspace → **Variables → Add variable**, category
-   **Environment variable**, `VERCEL_API_TOKEN`, `NEON_API_KEY` and `RAILWAY_TOKEN`, each marked
+   **Environment variable**, `VERCEL_API_TOKEN`, `NEON_API_KEY` and `RENDER_API_KEY`, each marked
    **Sensitive**.
    Optional **Terraform variables** `sentry_dsn`, `otel_endpoint` and `otel_headers` (Sensitive)
    turn on Sentry and metrics.
@@ -302,14 +305,20 @@ for it, so it stays out of your shell history:
 gh secret set TF_API_TOKEN --repo <owner>/<repo>
 ```
 
-**7. First apply.** Push to `main`. The workflow applies, creates the Neon, Vercel and Railway
-projects and the env vars, triggers the first production deployment, which runs the first
-migration, and deploys the worker. Then check the worker is up:
+**7. First apply.** Push to `main`. The workflow applies, creates the Neon and Vercel projects
+and the env vars, and triggers the first production deployment, which runs the first migration:
 
 ```bash
 git push origin main
 gh run watch
-curl "$(terraform -chdir=infra output -raw worker_health_url)"   # {"ok":true}
+```
+
+The worker is off by default. To run it, add the **Terraform variable** `worker_enabled` = `true`
+(HCL) in the HCP workspace and re-run the apply; then look for `worker.started` in the worker's logs
+in the Render dashboard:
+
+```bash
+gh workflow run infra.yml --ref main
 ```
 
 If an apply fails on a token, fix the variable in the HCP workspace and re-run it; Terraform
@@ -319,7 +328,7 @@ resumes from what it already created:
 gh workflow run infra.yml --ref main
 ```
 
-Change infrastructure by editing `infra/` in a PR, never in the Vercel, Neon or Railway dashboards,
+Change infrastructure by editing `infra/` in a PR, never in the Vercel, Neon or Render dashboards,
 or the next apply reverts it.
 
 ## Design decisions
@@ -396,23 +405,25 @@ with the deployment still serving traffic, and a preview build migrates the shar
 **The kit is public.** Vercel clones submodules only over public HTTPS, so `.gitmodules` points at
 the kit's HTTPS URL and the kit repo is public. It holds no secrets.
 
-**Background work runs on a Railway worker, not in Vercel.** A Vercel function is bounded to
+**Background work runs on a worker, not in Vercel.** A Vercel function is bounded to
 minutes and is billed while it waits, and Vercel Workflows would tie job code to Vercel's
-step-function API. A plain long-running process runs anything for as long as it takes. Railway
+step-function API. A plain long-running process runs anything for as long as it takes. Render
 runs it from this repo with no Dockerfile, restarts it on a crash, and is declared in `infra/`
 like everything else. The worker is Express rather than bare `Bun.serve` so the routes it grows —
 an admin trigger, a queue dashboard — have the ecosystem's middleware. Vercel Queues remain a
 fit for short, bursty fan-out handled by functions; it would be a second `JobQueue` adapter.
 
-**The worker's Railway settings are env vars, not a config file.** Railway no longer accepts
-`railway.json` for new services, and its replacement, `.railway/railway.ts`, is applied by the
-Railway CLI, which would put a second infrastructure tool beside Terraform. The Terraform provider
-cannot set a start command or a healthcheck, but Railpack reads `RAILPACK_BUILD_CMD` and
-`RAILPACK_START_CMD` from the service's variables, which Terraform does set. Two settings are lost:
-a deploy goes live when the process starts rather than when `/health` answers, and every push to
-`main` redeploys the worker, not only one that touches its code. A redeploy stops taking jobs and
-waits for those in flight, so it costs seconds. Railway's API can still set both; add that call to
-`infra/` if a bad deploy ever goes live unnoticed.
+**The worker runs on Render.** Render maintains its Terraform provider, which sets the start and
+build commands, a monorepo build filter and the shutdown delay, so the worker is declared entirely
+in `infra/` and `DATABASE_URL` flows from Neon to it without leaving Terraform. Render runs Bun
+natively and clones the kit submodule. It replaced Railway, whose Terraform provider is
+community-maintained and cannot set a start command, healthcheck or watch paths, and whose official
+TypeScript IaC would move secrets out of Terraform. The cost is a flat $7/mo per worker, since
+Render has no free tier for workers, and background workers get no healthcheck, so a deploy goes
+live when the process starts rather than when `/health` answers.
+
+**The worker is off by default.** It costs money and its polling keeps Neon from sleeping, so
+`worker_enabled` defaults to `false` and a fresh template applies cleanly for free.
 
 **Jobs ride on Postgres.** pg-boss keeps jobs in the database the app already has, so a job can be
 enqueued in the same transaction as the write it depends on, and its state and output are rows
@@ -421,12 +432,12 @@ while it runs, which is roughly an always-on 0.25 CU and more than Neon's free p
 Raising `pollingIntervalSeconds` in `apps/worker/src/index.ts` trims it but cannot remove it.
 
 **Previews enqueue, but no preview worker runs.** The worker is production-only, so a job
-enqueued from a preview deployment stays queued on the preview branch. A second Railway
-environment pointed at that branch would double the always-on cost for a demo; add one when a
+enqueued from a preview deployment stays queued on the preview branch. A second Render
+worker pointed at that branch would double the always-on cost for a demo; add one when a
 preview needs to see jobs finish.
 
 **The worker logs to stdout.** The kit's Sentry sink is built on `@sentry/nextjs` and relies on
-Next's `instrumentation.ts` to initialise it, so the worker uses the console sink and Railway
+Next's `instrumentation.ts` to initialise it, so the worker uses the console sink and Render
 collects the output. Sentry for the worker needs a kit adapter on `@sentry/node` first.
 
 ## Conventions

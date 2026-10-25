@@ -46,26 +46,26 @@ provider "registry.terraform.io/kislerdm/neon" {
   ]
 }
 
-provider "registry.terraform.io/terraform-community-providers/railway" {
-  version     = "0.6.2"
-  constraints = "~> 0.6"
+provider "registry.terraform.io/render-oss/render" {
+  version     = "1.9.1"
+  constraints = "~> 1.9"
   hashes = [
-    "h1:XOUbEGQtNH7Tl/03EAK+1oI2zcWZy2XXhc7N9mrBH5I=",
-    "h1:mu26FQVxAkeKliuRNCEnbRRY1BdNoU8xUw7s6bLmlZo=",
-    "zh:2165a426b2e346c2debb05517e3993f87253ddcdf145d94401ea2ab9178d35ab",
-    "zh:2f3f0f3423564c88ada05238f136034fc35634fc7978efc503b984ba35e83724",
-    "zh:3bb0618cddccca0d0c690044f7338e4cd103b45114ffbcca8769e864a1b2554b",
-    "zh:50fd5dc5cf749d8ecd10e5e4ee5cef04b541beb522aab6d4e1845ee812e0c088",
-    "zh:6a52b2c60121a695151d6a91e61c3fecabc0a40bf75d6b530d828eef0dc0619d",
-    "zh:7356f98cef110a5ca1a261fddde4b53c74b6a22848bdca642e2094f7708b3626",
-    "zh:7b47792310e502d0a0b4427133b161114dce2323bc61bf40dc6c4d67858b7629",
-    "zh:7e8740d239d76a869e0d8eb5dc6c1ec62459603ea6a057333006f8de1c12e2f0",
+    "h1:SPplXH6ekHdFE1pMaTGAOVO3xhbWKDP3DlNInNudDrw=",
+    "h1:wz6KTpyHk/XzaXMPUbUpkWQfLquOevbJ7lj6nlB6Bhw=",
+    "zh:246e4b438054d8f9d47828373504b39b479a53cf5b444170c30f8b370bf51989",
+    "zh:296a709eded9a1205af16396929e5e12f216190d571cb0c398c0604517fede72",
+    "zh:60ec67073a919bd33880afd592b42998fe73c01f1bbee7de82b034e2dfa4dcb4",
+    "zh:6386fdd420ecb4d92347f7876af40de647fb365c5c7fbab17ab94affd1d59531",
+    "zh:744c058db200bddd1da0325f53c475d069dc1dea789952b080cfa26cd9239faa",
+    "zh:793d4577c3ebf22aca038d74a083b40a579954bf2b44888cd1aa050ca8751a43",
+    "zh:86a10a08c10d9b270dc8212bb1c86e63795f862e2ec21e972c9de5e5965fbb8c",
     "zh:890df766e9b839623b1f0437355032a3c006226a6c200cd911e15ee1a9014e9f",
-    "zh:99d7a179fe16211beb790e19a8f65d570a23ed4f6b752b5bd6d073195fc4cf9d",
-    "zh:9f31f26d0d93067fca796a718a9b39ebfb1fce4d24e382c215f33e0dde7b3420",
-    "zh:adb29c332488b29cc483f8cac00a0cc54cacd4cfe5bbd818a55a1c1b4394ebcd",
-    "zh:d16148e673900550273cbbb12f7dbd7f96ec0cfaa863ec93ec5b108258415637",
-    "zh:da40431bcd65e85bec7f301611cad5b4b772dae250e9622556072b6a3a7503b6",
+    "zh:9897120058ecd2fd58910aaa1ae18bfc5cfbe18577b4e27ff1fa4b2dd0f8a191",
+    "zh:b8eb84a81ebe94e11e34f7f079e5c3814e901485e771a9022a954bff952df0d7",
+    "zh:bb3e42165beaf6ae6d81fb5eb9bc5cbcc321d030a619bb84111f569664ecd42b",
+    "zh:c7e517679e9d019bf843c5926d49bcaed221cc641cd721d3ba2c0ccd43150608",
+    "zh:ef2701098386c60c42a3051703bfe579f76a9e139b0f3a7cffa30661d73dc8a1",
+    "zh:fb02b8010d6817eeca3aad742ea89b1475669c12c797defdc6bab9db7c0c1a1b",
   ]
 }
 

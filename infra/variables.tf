@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Name of the Vercel, Neon and Railway projects."
+  description = "Name of the Vercel, Neon and Render projects."
   type        = string
   default     = "sujstack"
 }
@@ -28,10 +28,21 @@ variable "vercel_region" {
   default     = "iad1"
 }
 
-variable "railway_region" {
-  description = "Railway region for apps/worker. Keep it next to neon_region."
+variable "render_owner_id" {
+  description = "The Render workspace that owns the worker (tea-… or usr-…, from the dashboard URL)."
   type        = string
-  default     = "us-east4-eqdc4a"
+}
+
+variable "render_region" {
+  description = "Render region for apps/worker. Keep it next to neon_region."
+  type        = string
+  default     = "virginia"
+}
+
+variable "worker_enabled" {
+  description = "Run apps/worker on Render. Costs $7/mo, and its polling keeps Neon from sleeping."
+  type        = bool
+  default     = false
 }
 
 variable "sentry_dsn" {

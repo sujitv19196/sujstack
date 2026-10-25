@@ -30,12 +30,13 @@ export function JobsCard() {
         <CardDescription>
           This Vercel function writes a two-second job into a pg-boss table on Neon, inside the same
           transaction as any other write, so the job exists only if that commits. A long-running
-          worker (apps/worker, a Bun + Express process on Railway, provisioned by infra/) polls that
+          worker (apps/worker, a Bun + Express process on Render, provisioned by infra/) polls that
           table, runs the job and stores its output; this card polls the job's row until it settles.
           A failing job is retried twice, then marked failed.
         </CardDescription>
         <CardDescription>
-          The worker runs against production only, so on a preview deployment jobs stay queued.
+          The worker runs against production only, so on a preview deployment jobs stay queued. It
+          is off until infra/ sets worker_enabled, and until then deployed jobs stay queued too.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
