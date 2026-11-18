@@ -58,7 +58,8 @@ apps/next/
   src/server/obs.ts                             # composition root for the log
   src/server/metrics/{catalog,runtime}.ts       # counters, rules, composition root for metrics
   src/server/jobs/{catalog,runtime}.ts          # job types and policies, composition root for the queue
-  src/server/trpc/{init,context}.ts  routers/   # your procedures
+  src/server/trpc/{init,context,runtime}.ts  routers/   # your procedures, the request context
+  src/server/mcp/runtime.ts                     # composition root for the MCP endpoint
   src/trpc/                                     # React bindings and provider
   src/components/ui/  src/lib/utils.ts          # shadcn/ui
 apps/worker/
@@ -183,6 +184,32 @@ To send one by hand in development:
 body='{"id":"evt_1","type":"demo.ping"}'
 sig=$(printf %s "$body" | openssl dgst -sha256 -hmac sujstack-dev-webhook-secret -hex | sed 's/.* //')
 curl -i localhost:3000/api/webhooks/demo -H "x-demo-signature: sha256=$sig" -d "$body"
+```
+
+### MCP tools
+
+`/api/mcp` serves tRPC procedures to LLM clients as MCP tools, through the kit's
+`@sujstack/mcp-adapters/trpc`. A procedure is exposed only when it opts in, and opting in requires a
+description, which is what the model reads to decide when to call it:
+
+```ts
+search: publicProcedure
+  .meta({ mcp: { description: "Finds documents similar to the text, with scores." } })
+  .input(z.object({ text: z.string() }))
+  .query(...)
+```
+
+The tool is named after the path, `.` → `_` (`demo.vectorSearch` → `demo_vectorSearch`); its
+input schema comes from the Zod `.input()`, and queries are marked read-only. A tool call runs the
+procedure itself, with a context from the same `createContext` (`src/server/trpc/runtime.ts`) the
+tRPC route uses, so it is logged as `trpc.<path>`, counted in `trpc.requests`, and passes through
+the procedure's own middleware. There is no MCP-specific auth: a procedure built on a
+`protectedProcedure` that reads the session from the request headers is protected over MCP too, for
+clients that send those headers (usually `Authorization: Bearer …`). To connect Claude Code in
+development:
+
+```sh
+claude mcp add --transport http sujstack http://localhost:3000/api/mcp
 ```
 
 ### Background jobs
@@ -336,6 +363,15 @@ or the next apply reverts it.
 The port- and adapter-level decisions — free-form log messages, the metrics catalog, typed rule
 builders, error masking, vector ids and scores — are in the [kit README](kit/README.md). These are
 the app-level ones.
+
+**MCP tools are tRPC procedures, not a second API.** An LLM client and the UI want the same
+operations, so rather than maintain a parallel set of MCP handlers, a procedure opts in with a
+description and the kit serves it as a tool. Both routes build their context with the one
+`createContext` in `src/server/trpc/runtime.ts`, which is what makes the procedure's own
+middleware the MCP endpoint's auth: whatever a `protectedProcedure` reads from the request, it reads
+the same way from an MCP call, so there is no second permission model to drift. Opt-in rather than
+expose-everything, because a tool list is a prompt: every tool the model sees costs context and is
+one more thing it might call.
 
 **One kit, as a submodule.** Code you own and code you are meant to edit used to share packages,
 with no visible line saying "don't edit below here". The submodule is that line: `kit/` is a pinned

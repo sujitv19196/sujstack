@@ -37,12 +37,20 @@ const profileSchema = z.object({
 
 export const demoRouter = router({
   /** What the app is wired to. Unlike `health.check`, works without a database. */
-  stack: publicProcedure.query(async ({ ctx }) => ({
-    database: ctx.databaseConfigured ? ("configured" as const) : ("not configured" as const),
-    kv: ctx.providers.kv,
-    vector: ctx.providers.vector,
-    vectorIndex: await ctx.vectors.describe(),
-  })),
+  stack: publicProcedure
+    .meta({
+      mcp: {
+        description:
+          "Reports which providers the app is wired to (database, key-value store, vector store) " +
+          "and the vector index's dimensions and metric. Takes no input and needs no database.",
+      },
+    })
+    .query(async ({ ctx }) => ({
+      database: ctx.databaseConfigured ? ("configured" as const) : ("not configured" as const),
+      kv: ctx.providers.kv,
+      vector: ctx.providers.vector,
+      vectorIndex: await ctx.vectors.describe(),
+    })),
 
   /** Inserts a row inside a transaction, commits or rolls it back, then checks what survived. */
   transaction: publicProcedure
@@ -100,11 +108,25 @@ export const demoRouter = router({
     }),
 
   jobStatus: publicProcedure
+    .meta({
+      mcp: {
+        description:
+          "Looks up a demo.sleep background job by the id returned when it was enqueued, " +
+          "and returns its state, attempt count and output.",
+      },
+    })
     .input(z.object({ id: z.uuid() }))
     .query(({ ctx, input }) => ctx.jobs.status("demo.sleep", input.id)),
 
   /** Fails on request, to show how each kind of fault is logged, counted and masked. */
   fault: publicProcedure
+    .meta({
+      mcp: {
+        description:
+          "Fails on request, to demonstrate error handling: 'client' returns a client error with " +
+          "its message, 'server' a masked server error, 'none' succeeds.",
+      },
+    })
     .input(z.object({ kind: z.enum(["none", "client", "server"]) }))
     .mutation(({ input }) => {
       if (input.kind === "client") {
@@ -118,6 +140,13 @@ export const demoRouter = router({
 
   /** Seeds the sample documents, then returns the nearest ones to `text`. */
   vectorSearch: publicProcedure
+    .meta({
+      mcp: {
+        description:
+          "Searches a small built-in set of documents about this stack's architecture and returns " +
+          "the three most similar to the given text, with similarity scores.",
+      },
+    })
     .input(z.object({ text: z.string().trim().min(1).max(200) }))
     .query(async ({ ctx, input }) => {
       const { dimensions } = await ctx.vectors.describe()

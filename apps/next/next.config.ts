@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "@sujstack/db-core",
     "@sujstack/jobs-adapters",
     "@sujstack/jobs-core",
+    "@sujstack/mcp-adapters",
     "@sujstack/metrics-adapters",
     "@sujstack/metrics-core",
     "@sujstack/obs-adapters",

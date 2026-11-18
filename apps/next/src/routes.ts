@@ -3,6 +3,7 @@ export const routes = {
   home: "/",
   api: {
     trpc: "/api/trpc",
+    mcp: "/api/mcp",
     webhooks: {
       demo: "/api/webhooks/demo",
     },

@@ -26,6 +26,7 @@
     "@sujstack/db-core": "workspace:*",
     "@sujstack/jobs-adapters": "workspace:*",
     "@sujstack/jobs-core": "workspace:*",
+    "@sujstack/mcp-adapters": "workspace:*",
     "@sujstack/metrics-adapters": "workspace:*",
     "@sujstack/metrics-core": "workspace:*",
     "@sujstack/obs-adapters": "workspace:*",

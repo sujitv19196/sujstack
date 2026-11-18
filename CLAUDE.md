@@ -54,13 +54,14 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/ports/db-core` | Port. `KeyValueStore`, `VectorStore`, contract suites. Zero runtime dependencies. |
 | `kit/ports/obs-core` | Port. `EventSink` + the `createLog` facade. Zero runtime dependencies. |
 | `kit/ports/metrics-core` | Port. `MetricSink`, typed counters, `createMetrics`, rule builders. Zero runtime dependencies. |
-| `kit/ports/trpc-core` | `createTrpc<Context>()`: error mask, bare `procedure`, `logged` middleware, `TrpcCall`. |
+| `kit/ports/trpc-core` | `createTrpc<Context, Meta>()`: error mask, bare `procedure`, `logged` middleware, `TrpcCall`. |
 | `kit/ports/webhook-core` | `WebhookVerifier`, logged `createWebhookHandler`, `WebhookDelivery`, `runVerifierContract`. No adapters. |
 | `kit/ports/jobs-core` | `JobQueue`, `JobWorker`, `loggedHandlers`, `JobRun`, `runJobsContract`. |
 | `kit/adapters/db` | `@sujstack/db-adapters`: `./kv/memory`, `./vector/memory`, `./postgres`. |
 | `kit/adapters/obs` | `@sujstack/obs-adapters`: `./console`, `./sentry`. |
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
 | `kit/adapters/jobs` | `@sujstack/jobs-adapters`: `./memory`, `./pg-boss`. |
+| `kit/adapters/mcp` | `@sujstack/mcp-adapters`: `./trpc` — `createMcpHandler`, `McpMeta`. No port, like Drizzle. |
 | `apps/next` | The application: composition roots, schema, catalogs, routers, UI. Exports `./jobs` and `./metrics` (the catalogs) for `apps/worker`. |
 | `apps/worker` | Long-running Bun + Express process on Render, off until `worker_enabled`: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
 | `infra/` | Terraform: the Vercel project, Neon project and branches, the Render worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
@@ -68,7 +69,8 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a
 provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts`,
-`server/metrics/runtime.ts`, `server/webhooks/runtime.ts` and `server/jobs/runtime.ts`, plus
+`server/metrics/runtime.ts`, `server/webhooks/runtime.ts`, `server/jobs/runtime.ts`,
+`server/trpc/runtime.ts` (`createContext`) and `server/mcp/runtime.ts`, plus
 `apps/worker/src/index.ts` — the only modules that name a concrete adapter, read `process.env`,
 and own the singletons.
 
@@ -82,7 +84,7 @@ Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL di
 `db`, so creating it never opens a connection; the first *query* throws if `url` was `undefined`.
 
 The app's tRPC `Context` (`apps/next/src/server/trpc/context.ts`) extends the kit's `BaseContext`
-(`log`, `onCall`); the route handler supplies `onCall: countCalls(metrics)` from `init.ts`.
+(`log`, `onCall`); `createContext` in `server/trpc/runtime.ts` supplies `onCall: countCalls(metrics)` from `init.ts`.
 `server/trpc/init.ts` calls `createTrpc<Context>()` and composes
 a private `baseProcedure = t.procedure.use(t.logged)`. Every exported base procedure is built there
 by extending `baseProcedure` (`publicProcedure = baseProcedure`,
@@ -134,6 +136,16 @@ make the job commit with the write); `apps/worker/src/handlers.ts` must have a h
 name or it does not compile. The worker wraps handlers in `loggedHandlers` (`job.<name>`) and
 counts each attempt in `jobs.processed`. Its `DATABASE_URL` must be a direct connection, never the
 pooler. Queues are created only by the worker on start, so enqueueing fails until it has run once.
+
+### MCP
+
+`/api/mcp` serves every procedure whose meta sets `mcp` as a tool:
+`.meta({ mcp: { description } })`, where the description is required and written for the model. The
+tool name is the path with `.` → `_`; the handler throws at startup on a collision, a chained or
+non-object `.input()`. A call runs the real procedure with the same `createContext` as the tRPC
+route, so it is logged, counted and authorised by the procedure's own middleware — there is no
+separate MCP auth, and none should be added. Server faults are masked in the adapter, because
+`errorFormatter` never sees this path.
 
 ### Errors across the wire
 
