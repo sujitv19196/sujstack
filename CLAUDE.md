@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Starting an app from this template, what an app may edit, and upgrading it to a newer template
+release are in `AGENTS.md`.
+
 ## Commands
 
 ```bash
@@ -43,6 +46,16 @@ kit change, stop and say so.
 **Pin `kit/` to a release tag**, never an untagged commit. To update: `git -C kit fetch --tags`,
 `git -C kit checkout vX.Y.Z`, run the full verify loop, then commit the pointer as
 `chore: bump kit to vX.Y.Z`. `git -C kit describe --tags` shows which release is pinned.
+
+## Template releases
+
+This applies to the template repo only, not to an app made from it. The template version is
+`version` in the root `package.json`, and `CHANGELOG.md` says what each release changed. Every
+release pins `kit/` to a kit tag. To release: rename `## Unreleased` in `CHANGELOG.md` to
+`## X.Y.Z`, writing *Upgrade notes* for any manual step an app needs (a new env var, a moved file,
+a Terraform change), and commit it; then `bun pm version patch|minor` (commits and tags `vX.Y.Z`) and
+`git push --follow-tags`. `0.x` while the template settles: anything that needs an upgrade note
+bumps the minor.
 
 ## Architecture
 

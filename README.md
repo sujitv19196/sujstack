@@ -8,7 +8,10 @@ concrete provider is swappable without touching a single call site. Nothing is c
 the box: the app boots, typechecks, tests and runs with no database and no credentials.
 
 The ports and adapters live in [sujstack-kit](https://github.com/sujitv19196/sujstack-kit), mounted
-here as the `kit/` submodule. Fork or template this repo; take kit updates by bumping the submodule.
+here as the `kit/` submodule. The template is versioned: start an app by cloning it with history,
+then take template releases with `git merge` and kit releases by bumping the submodule. The steps,
+for people and agents alike, are in [AGENTS.md](AGENTS.md); what each release changed is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Quick start
 
@@ -35,8 +38,9 @@ In an existing clone, `git submodule update --init` fetches `kit/`.
 
 The home page is a tour of the stack: adapters, KV namespaces, vector search, fault handling,
 alert rules and the render error boundary. It is built from `apps/next/src/app/_demo/` and the
-`demo` router in `apps/next/src/server/trpc/routers/demo.ts`. Delete both, and the router's line
-in `_app.ts`, to start clean.
+`demo` router in `apps/next/src/server/trpc/routers/demo.ts`, and it also reaches into the
+webhooks, the jobs, the metrics catalog and Terraform. *Removing the demo* in
+[AGENTS.md](AGENTS.md) lists every piece.
 
 ## Layout
 
@@ -372,6 +376,19 @@ middleware the MCP endpoint's auth: whatever a `protectedProcedure` reads from t
 the same way from an MCP call, so there is no second permission model to drift. Opt-in rather than
 expose-everything, because a tool list is a prompt: every tool the model sees costs context and is
 one more thing it might call.
+
+**Apps are clones that merge template releases.** Most templates are one-shot: create-t3-app and
+TanStack's CLI scaffold an app and never touch it again, and TanStack copes by keeping the generated
+code thin and everything else in versioned packages. The kit is that half here, but the app layer
+(Terraform, CI, the composition roots, the worker) is thick enough that losing its fixes matters.
+So the template has releases, and an app is a clone that keeps the template's history: a release
+merges with git's own three-way merge against a real common ancestor, which is what Copier and the
+React Native upgrade helper rebuild by hand. A GitHub fork would do the same but allows one per
+account and cannot be made private; a copy with fresh history has no common ancestor to merge
+against. The template's tags are fetched under `template/`, so they never collide with the app's
+own. Optional pieces are removed with a written recipe and recorded in `sujstack.json`, rather than
+composed by a generator as TanStack's add-ons are: the features here share catalogs, the context
+and Terraform, so a generator would be a second codebase to keep in step.
 
 **One kit, as a submodule.** Code you own and code you are meant to edit used to share packages,
 with no visible line saying "don't edit below here". The submodule is that line: `kit/` is a pinned
