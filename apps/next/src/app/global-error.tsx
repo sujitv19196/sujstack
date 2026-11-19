@@ -1,8 +1,8 @@
 "use client"
 
+import { log } from "@app/server/obs"
+import { GENERIC_ERROR_MESSAGE } from "@app/shared/config"
 import { useEffect } from "react"
-import { GENERIC_ERROR_MESSAGE } from "../config"
-import { log } from "../server/obs"
 import "./globals.css"
 
 // Replaces the root layout when it fires, so it renders its own document shell.

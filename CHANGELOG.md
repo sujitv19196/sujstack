@@ -4,6 +4,50 @@ Every template release, newest first. *Upgrade notes* say what an app must do wh
 release, beyond resolving conflicts; a release without them merges with no manual steps. See
 *Upgrading to a newer template release* in `AGENTS.md`.
 
+## 0.2.0
+
+Server code moves out of the Next app into workspace packages, so the worker can run it too. A job
+handler that needed the database, a router or a composition root used to have to import from
+`apps/next`; now both apps import `@app/server`.
+
+- `packages/db` (`@app/db`): the schema, the `Database` / `Transaction` types (`src/types.ts`),
+  drizzle-kit's config and migrations, and the `db:*` scripts, which load `apps/next/.env.local`.
+- `packages/server` (`@app/server`): everything that was in `apps/next/src/server` except the
+  schema — composition roots, catalogs, tRPC, MCP, webhooks — plus `rules.yaml` and
+  `scripts/rules.ts`.
+- `packages/shared` (`@app/shared`): `config.ts` and `routes.ts`, which both the browser and the
+  server import.
+- `apps/next` keeps pages, components, the React tRPC bindings and route handlers that import
+  `@app/server`. It no longer exports `./jobs` and `./metrics`; the worker imports
+  `@app/server/jobs/catalog` and `@app/server/metrics/catalog`.
+- Root `workspaces` include `packages/*`; `transpilePackages` lists the `@app/*` packages.
+- Render redeploys the worker on any change under `packages/`.
+- `CLAUDE.md`, `AGENTS.md`, `README.md`, `.env.example` and the skills point at the new paths.
+
+### Upgrade notes
+
+Merge the release, then move the app's own code the same way the template's moved (use `git mv`
+so history follows):
+
+1. `apps/next/src/server/db/schema.ts` → `packages/db/src/schema.ts`, and
+   `apps/next/migrations/` → `packages/db/migrations/`. Import `Database` / `Transaction` from
+   `@app/db/types` in anything outside `db/runtime.ts`.
+2. Everything else in `apps/next/src/server/` → `packages/server/src/`, keeping its relative layout.
+   Imports of the schema become `@app/db/schema`; of `config` or `routes`, `@app/shared/config` and
+   `@app/shared/routes`.
+3. Anything in `apps/next/src` (other than pages and components) that server code imports — date or
+   money helpers, for example — → `packages/shared/src/`.
+4. In `apps/next`, replace relative imports of `../server/...` with `@app/server/...`, and of
+   `config` / `routes` with `@app/shared/...`.
+5. Move the app's server dependencies (`drizzle-orm`, `zod`, `@trpc/server`, kit packages, SDKs the
+   server calls) from `apps/next/package.json` to `packages/server/package.json` (and
+   `drizzle-kit` to `packages/db`), then `bun install`.
+6. In the worker, replace `@sujstack/next/jobs` and `@sujstack/next/metrics` with
+   `@app/server/jobs/catalog` and `@app/server/metrics/catalog`, and the `@sujstack/next`
+   dependency with `@app/server`.
+7. `bun run typecheck && bun test && bun run check && bun run db:check && bun run metrics:check &&
+   bun run build`.
+
 ## 0.1.0
 
 The first versioned release of the template. Apps start from it by cloning with history, as

@@ -1,7 +1,7 @@
+import { GENERIC_ERROR_MESSAGE } from "@app/shared/config"
 import type { McpMeta } from "@sujstack/mcp-adapters/trpc"
 import type { Metrics } from "@sujstack/metrics-core"
 import { createTrpc, type TrpcCall } from "@sujstack/trpc-core"
-import { GENERIC_ERROR_MESSAGE } from "../../config"
 import type { counters } from "../metrics/catalog"
 import type { Context } from "./context"
 

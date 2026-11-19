@@ -85,15 +85,15 @@ jobs, the metrics catalog and Terraform. Remove it in one commit, so it is easy 
 later merge, and add `"demo"` to `removed` in `sujstack.json` in the same commit.
 
 1. **UI and router.** Delete `apps/next/src/app/_demo/`, replace `apps/next/src/app/page.tsx`, delete
-   `src/server/trpc/routers/demo.ts` and `demo.test.ts`, and remove the `demo` line and its import
+   `packages/server/src/trpc/routers/demo.ts` and `demo.test.ts`, and remove the `demo` line and its import
    from `routers/_app.ts`.
-2. **Demo webhook.** Delete `src/app/api/webhooks/demo/` and `src/server/webhooks/demo.ts` and
-   `demo.test.ts`. Reduce `src/server/webhooks/runtime.ts` to `export const webhooks = {}` (add
-   real providers there later). Remove `webhooks.demo` from `src/routes.ts`, `demoWebhookSecret`
-   from `src/server/trpc/context.ts`, `src/server/trpc/runtime.ts` and the fixture in
-   `routers/health.test.ts`. In `src/server/metrics/catalog.ts`, replace `source: "demo"` with the
+2. **Demo webhook.** Delete `src/app/api/webhooks/demo/` and `packages/server/src/webhooks/demo.ts` and
+   `demo.test.ts`. Reduce `packages/server/src/webhooks/runtime.ts` to `export const webhooks = {}` (add
+   real providers there later). Remove `webhooks.demo` from `packages/shared/src/routes.ts`, `demoWebhookSecret`
+   from `packages/server/src/trpc/context.ts`, `packages/server/src/trpc/runtime.ts` and the fixture in
+   `routers/health.test.ts`. In `packages/server/src/metrics/catalog.ts`, replace `source: "demo"` with the
    app's first real source, or with `never` until there is one.
-3. **Demo job.** Remove `demo.sleep` from `src/server/jobs/catalog.ts` and `apps/worker/src/handlers.ts`,
+3. **Demo job.** Remove `demo.sleep` from `packages/server/src/jobs/catalog.ts` and `apps/worker/src/handlers.ts`,
    and delete `apps/worker/src/handlers.test.ts`. An empty `Jobs` is `Record<never, never>`, not
    `{}`, which Biome rejects.
 4. **Infrastructure and env.** In `infra/vercel.tf`, delete the `random_password.demo_webhook`
@@ -109,9 +109,9 @@ Files fall into four groups. Keeping to them is what makes upgrades merge cleanl
 | Group | Files | Rule |
 | --- | --- | --- |
 | **Kit** | `kit/` | Never edit as part of an app change. A fix there is a kit release: see *Kit* in `CLAUDE.md`. |
-| **Template-owned** | `.github/`, the template's `.claude/skills/`, `biome.json`, `tsconfig.base.json`, `bunfig.toml`, `apps/next/scripts/`, `apps/next/src/trpc/`, `apps/next/src/app/api/{trpc,mcp}/`, `apps/worker/src/{index,server}.ts`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md` | Do not edit in an app. If one needs to change, the change belongs in the template: make it there, release it, and merge the release. |
-| **Shared** | composition roots (`src/server/**/runtime.ts`, `src/server/obs.ts`), `src/server/trpc/{init,context}.ts`, the catalogs, `next.config.ts`, the `package.json` files, `.env.example`, `infra/` | The template ships these and the app extends them. Add to them; avoid rewriting the template's lines. |
-| **App-owned** | `src/server/db/schema.ts`, `migrations/`, `routers/` (except `health.ts`), `src/app/` pages, `src/components/` | The template does not change these after the demo is removed. |
+| **Template-owned** | `.github/`, the template's `.claude/skills/`, `biome.json`, `tsconfig.base.json`, `bunfig.toml`, `packages/server/scripts/`, `apps/next/src/trpc/`, `apps/next/src/app/api/{trpc,mcp}/`, `apps/worker/src/{index,server}.ts`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md` | Do not edit in an app. If one needs to change, the change belongs in the template: make it there, release it, and merge the release. |
+| **Shared** | composition roots (`packages/server/src/**/runtime.ts`, `packages/server/src/obs.ts`), `packages/server/src/trpc/{init,context}.ts`, the catalogs, `next.config.ts`, the `package.json` files, `.env.example`, `infra/` | The template ships these and the app extends them. Add to them; avoid rewriting the template's lines. |
+| **App-owned** | `packages/db/src/schema.ts`, `packages/db/migrations/`, `packages/server/src/trpc/routers/` (except `health.ts`), and anything the app adds to `packages/`; `apps/next/src/app/` pages, `apps/next/src/components/` | The template does not change these after the demo is removed. |
 
 Two rules decide where a change goes:
 

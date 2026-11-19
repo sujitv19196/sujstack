@@ -4,7 +4,7 @@ import { defineConfig } from "drizzle-kit"
 // when an unpooled URL is set.
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/server/db/schema.ts",
+  schema: "./src/schema.ts",
   out: "./migrations",
   dbCredentials: { url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "" },
   strict: true,

@@ -1,5 +1,5 @@
 import { renderRules } from "@sujstack/metrics-core"
-import { rules } from "../src/server/metrics/catalog"
+import { rules } from "../src/metrics/catalog"
 
 const file = Bun.file(new URL("../rules.yaml", import.meta.url))
 const rendered = renderRules("sujstack", rules)

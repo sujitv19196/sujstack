@@ -6,7 +6,7 @@ description: Add an environment variable (secret or setting) that a sujstack app
 Secrets come from the environment; topology and behaviour come from code. If the value is not a
 secret or a per-deployment URL, make it a constant in code instead.
 
-1. **Read it in a composition root only** (`apps/next/src/server/**/runtime.ts`, `server/obs.ts`,
+1. **Read it in a composition root only** (`packages/server/src/**/runtime.ts`, `server/obs.ts`,
    `apps/worker/src/index.ts`), and pass it down as data. Nothing else touches `process.env`. Decide
    what happens when it is unset: a development default, or an inert or `503` feature in production.
 2. **Document it in `.env.example`**: which file reads it, what it is for, and what happens unset.

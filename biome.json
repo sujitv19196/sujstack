@@ -11,7 +11,7 @@
       "!**/node_modules",
       "!**/.next",
       "!**/next-env.d.ts",
-      "!apps/next/migrations",
+      "!packages/db/migrations",
       "!kit"
     ]
   },

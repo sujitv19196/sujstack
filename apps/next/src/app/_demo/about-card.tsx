@@ -23,7 +23,7 @@ export function AboutCard() {
         </p>
         <p className="text-muted-foreground">
           To start clean, delete <code>apps/next/src/app/_demo/</code>, then <code>demo.ts</code>{" "}
-          and <code>demo.test.ts</code> in <code>apps/next/src/server/trpc/routers/</code>, and the
+          and <code>demo.test.ts</code> in <code>packages/server/src/trpc/routers/</code>, and the
           router's line in <code>_app.ts</code>.
         </p>
       </CardContent>

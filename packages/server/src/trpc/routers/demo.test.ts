@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
+import * as schema from "@app/db/schema"
 import { createMemoryKv } from "@sujstack/db-adapters/kv/memory"
 import { createPostgres } from "@sujstack/db-adapters/postgres"
 import { createMemoryVectorStore } from "@sujstack/db-adapters/vector/memory"
@@ -8,7 +9,6 @@ import { createMemorySink as createMetricSink } from "@sujstack/metrics-core/tes
 import { createLog } from "@sujstack/obs-core"
 import { createMemorySink } from "@sujstack/obs-core/testing"
 import { createWebhookHandler } from "@sujstack/webhook-core"
-import * as schema from "../../db/schema"
 import { policies } from "../../jobs/catalog"
 import { counters } from "../../metrics/catalog"
 import { createDemoVerifier, handleDemoEvent } from "../../webhooks/demo"

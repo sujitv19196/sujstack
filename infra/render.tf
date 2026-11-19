@@ -18,8 +18,8 @@ resource "render_background_worker" "worker" {
       build_filter = {
         paths = [
           "apps/worker/**",
-          "apps/next/src/server/jobs/**",
-          "apps/next/src/server/metrics/catalog.ts",
+          # The worker runs @app/server (and what it imports) from source.
+          "packages/**",
           "kit",
           "kit/**",
           "bun.lock",

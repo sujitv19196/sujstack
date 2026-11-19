@@ -32,13 +32,13 @@ In an existing clone, `git submodule update --init` fetches `kit/`.
 | `bun run db:generate` | schema → SQL migration (no connection needed) |
 | `bun run db:check` | fails if migrations have drifted from the schema |
 | `bun run db:migrate` / `push` / `studio` | require `DATABASE_URL` |
-| `bun run metrics:rules` | catalog → `apps/next/rules.yaml` |
+| `bun run metrics:rules` | catalog → `packages/server/rules.yaml` |
 | `bun run metrics:check` | fails if `rules.yaml` has drifted from the catalog |
 | `bun run infra:check` / `infra:fmt` | `terraform fmt` + `validate` on `infra/` (needs the Terraform CLI, no credentials) |
 
 The home page is a tour of the stack: adapters, KV namespaces, vector search, fault handling,
 alert rules and the render error boundary. It is built from `apps/next/src/app/_demo/` and the
-`demo` router in `apps/next/src/server/trpc/routers/demo.ts`, and it also reaches into the
+`demo` router in `packages/server/src/trpc/routers/demo.ts`, and it also reaches into the
 webhooks, the jobs, the metrics catalog and Terraform. *Removing the demo* in
 [AGENTS.md](AGENTS.md) lists every piece.
 
@@ -48,23 +48,33 @@ webhooks, the jobs, the metrics catalog and Terraform. *Removing the demo* in
 | --- | --- | --- |
 | **Ports** — interfaces, facades, contract suites, tRPC plumbing | kit | `kit/ports/*` |
 | **Adapters** — memory, Postgres, pg-boss, console, Sentry, OTLP | kit | `kit/adapters/*` |
-| **Composition roots**, schema, catalogs, routers, UI, pages | you | `apps/next` |
+| **Schema and migrations** | you | `packages/db` |
+| **Server** — composition roots, catalogs, routers: framework-free, shared by both apps | you | `packages/server` |
+| **Shared** — code the browser and server both run: config, routes | you | `packages/shared` |
+| **UI** — pages, components, the HTTP routes that call the server | you | `apps/next` |
 | **Worker** — background job handlers, `/health` | you | `apps/worker` |
 | **Infrastructure** — Vercel, Neon and Render projects, env vars | you | `infra/` |
 
 Everything under `kit/` is someone else's code: change it upstream, not here. Everything under
-`apps/next` is yours:
+`packages/` and `apps/` is yours. Server code lives in packages, not in the Next app, so the worker
+can run it too: a job handler imports `@app/server` the same way a route handler does.
 
 ```
-apps/next/
-  drizzle.config.ts  migrations/  rules.yaml  scripts/rules.ts  components.json
-  src/server/db/{schema,runtime,env}.ts         # composition root for data
-  src/server/obs.ts                             # composition root for the log
-  src/server/metrics/{catalog,runtime}.ts       # counters, rules, composition root for metrics
-  src/server/jobs/{catalog,runtime}.ts          # job types and policies, composition root for the queue
-  src/server/trpc/{init,context,runtime}.ts  routers/   # your procedures, the request context
-  src/server/mcp/runtime.ts                     # composition root for the MCP endpoint
-  src/trpc/                                     # React bindings and provider
+packages/db/                                    # @app/db
+  drizzle.config.ts  migrations/
+  src/schema.ts  src/types.ts                   # tables; the Database and Transaction types
+packages/server/                                # @app/server: no Next, no React
+  rules.yaml  scripts/rules.ts
+  src/db/{runtime,env}.ts                       # composition root for data
+  src/obs.ts                                    # composition root for the log
+  src/metrics/{catalog,runtime}.ts              # counters, rules, composition root for metrics
+  src/jobs/{catalog,runtime}.ts                 # job types and policies, composition root for the queue
+  src/trpc/{init,context,runtime}.ts  routers/  # your procedures, the request context
+  src/mcp/runtime.ts                            # composition root for the MCP endpoint
+packages/shared/                                # @app/shared: runs in the browser and on the server
+  src/config.ts  src/routes.ts
+apps/next/                                      # UI, and HTTP routes that call @app/server
+  components.json  src/app/  src/trpc/          # pages, route handlers, React bindings and provider
   src/components/ui/  src/lib/utils.ts          # shadcn/ui
 apps/worker/
   src/index.ts                                  # composition root: worker, log, metrics, Express
@@ -72,12 +82,12 @@ apps/worker/
 ```
 
 Kit packages are consumed as TypeScript source with no build step; Next compiles them via
-`transpilePackages` in `apps/next/next.config.ts`.
+`transpilePackages` in `apps/next/next.config.ts`, and so are the `@app/*` packages.
 
 ## The data layer
 
 This is **Ports and Adapters** (Hexagonal Architecture). Procedures see `ctx.kv` and `ctx.vectors`
-typed as the ports `KeyValueStore` and `VectorStore`. `apps/next/src/server/db/runtime.ts` is the
+typed as the ports `KeyValueStore` and `VectorStore`. `packages/server/src/db/runtime.ts` is the
 **composition root**: the only module that names an adapter or reads `DATABASE_URL`.
 
 ```ts
@@ -97,7 +107,7 @@ row to prove it, and names the Neon branch that answered.
 ### Swapping a provider
 
 1. Write the adapter implementing `KeyValueStore` — in the kit if it is generally useful, or in
-   `apps/next/src/server/db/` if it is yours alone.
+   `packages/server/src/db/` if it is yours alone.
 2. Call it in `runtime.ts` instead of `createMemoryKv()`, and update `providers`.
 
 There is no config union, factory or provider registry: the import is the selection, so a bad
@@ -110,7 +120,7 @@ runKvContract("redis", () => createRedisKv(url))
 
 ## Observability
 
-`apps/next/src/server/obs.ts` builds the `log`: the console sink in development, Sentry in
+`packages/server/src/obs.ts` builds the `log`: the console sink in development, Sentry in
 production. Sentry is inert without `SENTRY_DSN`, so the app boots uncredentialed.
 
 ```ts
@@ -126,7 +136,7 @@ is unvalidated client input and belongs in the fields rather than in the message
 
 ## Metrics
 
-Every counter and alert rule is declared in `apps/next/src/server/metrics/catalog.ts`, including
+Every counter and alert rule is declared in `packages/server/src/metrics/catalog.ts`, including
 the ones that count tRPC calls and webhook deliveries. The kit never increments a counter: it logs
 each call or delivery and hands the result to a callback, and the app maps that to its own counter:
 
@@ -139,7 +149,7 @@ export function countCalls(metrics: Metrics<typeof counters>) {
 onDelivery: ({ outcome }) => metrics.increment("webhooks.received", { source: "demo", outcome }),
 ```
 
-`bun run metrics:rules` compiles `rules` to `apps/next/rules.yaml`, which is committed;
+`bun run metrics:rules` compiles `rules` to `packages/server/rules.yaml`, which is committed;
 `bun run metrics:check` fails when it is stale. Uploading it to the backend (`mimirtool rules load`,
 `cortextool`, or the Prometheus config) is deliberately outside the code, and routing on `severity`
 belongs to Alertmanager or Grafana notification policies.
@@ -161,7 +171,7 @@ CLI there, so `bunx shadcn add <component>` works as usual. The theme is `src/ap
 
 ### Routes
 
-Paths live in `apps/next/src/routes.ts`, not inline. The tRPC endpoint in particular appears in
+Paths live in `packages/shared/src/routes.ts`, not inline. The tRPC endpoint in particular appears in
 two places that must agree — the route handler's `endpoint` and the client link's URL — so it is
 a single const. The browser uses these paths as they are. A server-side call back into the app
 builds its URL with `requestOrigin(ctx.headers)`, the origin the current request arrived on, from
@@ -175,9 +185,9 @@ parsing, status codes, and a `webhook.<source>` log and `webhooks.received{sourc
 delivery. Verifiers and handlers are yours. To add a provider:
 
 1. Add its name to the `source` union of `webhooks.received` in the metrics catalog.
-2. Write a `WebhookVerifier` in `src/server/webhooks/<provider>.ts`, usually a few lines around the
+2. Write a `WebhookVerifier` in `packages/server/src/webhooks/<provider>.ts`, usually a few lines around the
    provider's SDK, and prove it with `runVerifierContract` from `@sujstack/webhook-core/testing`.
-3. Wire it in `src/server/webhooks/runtime.ts`, which reads its secret and counts each delivery in
+3. Wire it in `packages/server/src/webhooks/runtime.ts`, which reads its secret and counts each delivery in
    `onDelivery`, and export it as `POST` from `src/app/api/webhooks/<provider>/route.ts`.
 
 `handle` may run twice for one event, since providers retry; `event.id` is stable, so skip repeats
@@ -205,7 +215,7 @@ search: publicProcedure
 
 The tool is named after the path, `.` → `_` (`demo.vectorSearch` → `demo_vectorSearch`); its
 input schema comes from the Zod `.input()`, and queries are marked read-only. A tool call runs the
-procedure itself, with a context from the same `createContext` (`src/server/trpc/runtime.ts`) the
+procedure itself, with a context from the same `createContext` (`packages/server/src/trpc/runtime.ts`) the
 tRPC route uses, so it is logged as `trpc.<path>`, counted in `trpc.requests`, and passes through
 the procedure's own middleware. There is no MCP-specific auth: a procedure built on a
 `protectedProcedure` that reads the session from the request headers is protected over MCP too, for
@@ -220,7 +230,7 @@ claude mcp add --transport http sujstack http://localhost:3000/api/mcp
 
 Work that outlives a request runs in `apps/worker`, a long-running Bun + Express process on Render
 that takes jobs from Postgres through the kit's pg-boss adapter. The job catalog,
-`apps/next/src/server/jobs/catalog.ts`, is the contract between the two apps: `Jobs` maps each name
+`packages/server/src/jobs/catalog.ts`, is the contract between the two apps: `Jobs` maps each name
 to its payload, and `policies` gives each a `retryLimit` and a `timeoutSeconds`. To add a job:
 
 1. Add its payload type to `Jobs` and its policy to `policies`.
@@ -371,7 +381,7 @@ the app-level ones.
 **MCP tools are tRPC procedures, not a second API.** An LLM client and the UI want the same
 operations, so rather than maintain a parallel set of MCP handlers, a procedure opts in with a
 description and the kit serves it as a tool. Both routes build their context with the one
-`createContext` in `src/server/trpc/runtime.ts`, which is what makes the procedure's own
+`createContext` in `packages/server/src/trpc/runtime.ts`, which is what makes the procedure's own
 middleware the MCP endpoint's auth: whatever a `protectedProcedure` reads from the request, it reads
 the same way from an MCP call, so there is no second permission model to drift. Opt-in rather than
 expose-everything, because a tool list is a prompt: every tool the model sees costs context and is
@@ -401,7 +411,7 @@ you to fork the kit to add a provider. The app's composition root calls adapter 
 directly instead, so adding a provider is an import. The exhaustiveness the switch used to give is
 still there: an unknown adapter is an unresolved import, which is a compile error.
 
-**The app composes its own base procedures.** `apps/next/src/server/trpc/init.ts` builds a
+**The app composes its own base procedures.** `packages/server/src/trpc/init.ts` builds a
 private `baseProcedure` from the kit's bare `procedure` and `logged` middleware, and every exported
 base procedure extends it: `publicProcedure = baseProcedure`, and a `protectedProcedure` would be
 `baseProcedure.use(requireAuth)`. They are siblings rather than one extending the other, because a
@@ -495,7 +505,7 @@ collects the output. Sentry for the worker needs a kit adapter on `@sentry/node`
 
 ## Conventions
 
-**Schema.** Table definitions in `apps/next/src/server/db/schema.ts` are human-authored; the types
+**Schema.** Table definitions in `packages/db/src/schema.ts` are human-authored; the types
 are not. `User` and `NewUser` come from Drizzle's `$inferSelect` / `$inferInsert`, so they cannot
 drift from the definitions. `db:generate` turns definitions into SQL and `db:check` fails on drift.
 

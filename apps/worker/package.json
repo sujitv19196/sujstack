@@ -9,11 +9,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@app/server": "workspace:*",
     "@sujstack/jobs-adapters": "workspace:*",
     "@sujstack/jobs-core": "workspace:*",
     "@sujstack/metrics-adapters": "workspace:*",
     "@sujstack/metrics-core": "workspace:*",
-    "@sujstack/next": "workspace:*",
     "@sujstack/obs-adapters": "workspace:*",
     "@sujstack/obs-core": "workspace:*",
     "express": "5.2.1"

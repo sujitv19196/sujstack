@@ -1,8 +1,8 @@
+import { log } from "@app/server/obs"
+import { appRouter } from "@app/server/trpc/routers/_app"
+import { createContext } from "@app/server/trpc/runtime"
+import { routes } from "@app/shared/routes"
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch"
-import { routes } from "../../../../routes"
-import { log } from "../../../../server/obs"
-import { appRouter } from "../../../../server/trpc/routers/_app"
-import { createContext } from "../../../../server/trpc/runtime"
 
 function handler(request: Request) {
   return fetchRequestHandler({

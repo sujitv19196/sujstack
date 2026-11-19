@@ -1,5 +1,5 @@
+import type { Jobs } from "@app/server/jobs/catalog"
 import type { JobHandlers } from "@sujstack/jobs-core"
-import type { Jobs } from "@sujstack/next/jobs"
 
 export const handlers: JobHandlers<Jobs> = {
   "demo.sleep": async ({ ms, fail }, { attempt }) => {

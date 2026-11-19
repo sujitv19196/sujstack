@@ -22,15 +22,20 @@ bun test -t "regex"         # one test by name
 bun run db:generate         # schema → SQL migration (no connection needed)
 bun run db:check            # fails if migrations have drifted from the schema
 bun run db:migrate | db:push | db:studio   # require DATABASE_URL
-bun run metrics:rules       # catalog → apps/next/rules.yaml (commit it)
+bun run metrics:rules       # catalog → packages/server/rules.yaml (commit it)
 bun run metrics:check       # fails if rules.yaml has drifted from the catalog
 bun run infra:check         # terraform fmt -check + validate (needs the terraform CLI, no credentials)
 bun run infra:fmt           # terraform fmt, writing fixes
 ```
 
-There is **no build step for kit packages**. They are consumed as TypeScript source and compiled
-by Next via `transpilePackages` in `apps/next/next.config.ts` — a new kit package must be added
-to that array or the app will fail to compile it.
+There is **no build step for kit or app packages**. They are consumed as TypeScript source and
+compiled by Next via `transpilePackages` in `apps/next/next.config.ts` — a new kit package or a new
+`packages/*` package must be added to that array or the app will fail to compile it. The worker
+runs them from source with Bun.
+
+Server code goes in `packages/server`, never in `apps/next`: the worker runs job handlers, and a
+handler needs the same database, routers and composition roots as a request does. `apps/next`
+holds what only Next can run (pages, components, route handlers that call `@app/server`).
 
 ## Kit
 
@@ -75,15 +80,18 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `kit/adapters/metrics` | `@sujstack/metrics-adapters`: `./console`, `./otlp`. |
 | `kit/adapters/jobs` | `@sujstack/jobs-adapters`: `./memory`, `./pg-boss`. |
 | `kit/adapters/mcp` | `@sujstack/mcp-adapters`: `./trpc` — `createMcpHandler`, `McpMeta`. No port, like Drizzle. |
-| `apps/next` | The application: composition roots, schema, catalogs, routers, UI. Exports `./jobs` and `./metrics` (the catalogs) for `apps/worker`. |
+| `packages/db` | `@app/db`: the schema (`src/schema.ts`), the `Database` / `Transaction` types, drizzle-kit migrations and the `db:*` scripts. |
+| `packages/server` | `@app/server`: everything server-side and framework-free — composition roots, catalogs, tRPC init / context / routers, MCP, webhooks. Both apps import it: Next's route handlers and the worker's job handlers. |
+| `packages/shared` | `@app/shared`: code both the browser and the server run (`config`, `routes`). No dependencies. |
+| `apps/next` | The UI: pages, components, the React tRPC bindings, and route handlers that call `@app/server`. No server logic of its own. |
 | `apps/worker` | Long-running Bun + Express process on Render, off until `worker_enabled`: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
 | `infra/` | Terraform: the Vercel project, Neon project and branches, the Render worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a
-provider. The composition roots are `apps/next/src/server/db/runtime.ts`, `server/obs.ts`,
-`server/metrics/runtime.ts`, `server/webhooks/runtime.ts`, `server/jobs/runtime.ts`,
-`server/trpc/runtime.ts` (`createContext`) and `server/mcp/runtime.ts`, plus
+provider. The composition roots are in `packages/server/src`: `db/runtime.ts`, `obs.ts`,
+`metrics/runtime.ts`, `webhooks/runtime.ts`, `jobs/runtime.ts`, `trpc/runtime.ts`
+(`createContext`) and `mcp/runtime.ts`, plus
 `apps/worker/src/index.ts` — the only modules that name a concrete adapter, read `process.env`,
 and own the singletons.
 
@@ -96,9 +104,9 @@ Drizzle is deliberately *not* wrapped in a port (it already abstracts the SQL di
 `createPostgres({ url, schema })` in `@sujstack/db-adapters/postgres` returns a lazy `Proxy` as
 `db`, so creating it never opens a connection; the first *query* throws if `url` was `undefined`.
 
-The app's tRPC `Context` (`apps/next/src/server/trpc/context.ts`) extends the kit's `BaseContext`
-(`log`, `onCall`); `createContext` in `server/trpc/runtime.ts` supplies `onCall: countCalls(metrics)` from `init.ts`.
-`server/trpc/init.ts` calls `createTrpc<Context>()` and composes
+The app's tRPC `Context` (`packages/server/src/trpc/context.ts`) extends the kit's `BaseContext`
+(`log`, `onCall`); `createContext` in `trpc/runtime.ts` supplies `onCall: countCalls(metrics)` from `init.ts`.
+`packages/server/src/trpc/init.ts` calls `createTrpc<Context>()` and composes
 a private `baseProcedure = t.procedure.use(t.logged)`. Every exported base procedure is built there
 by extending `baseProcedure` (`publicProcedure = baseProcedure`,
 `protectedProcedure = baseProcedure.use(requireAuth)`) — siblings, not one extending the other, and
@@ -131,19 +139,19 @@ Alerting is not modelled in code. Sentry is inert without a DSN, so the app boot
 
 ### Metrics
 
-Unlike logs, metrics **do** have a catalog: `apps/next/src/server/metrics/catalog.ts` declares every
+Unlike logs, metrics **do** have a catalog: `packages/server/src/metrics/catalog.ts` declares every
 counter and every alert rule, including `trpc.requests` and `webhooks.received`. The kit never
 increments: it hands each call or delivery to a callback (`ctx.onCall`, `onDelivery`) and the app
 counts it there. Labels are a type parameter;
 a label typed as plain `string` is a compile error, which is the cardinality guard. Rules reference
-counters, never name strings, and compile to `apps/next/rules.yaml` — after changing the catalog,
+counters, never name strings, and compile to `packages/server/rules.yaml` — after changing the catalog,
 run `bun run metrics:rules` and commit the file. `promName` in
 `kit/ports/metrics-core/src/counter.ts` owns the OTLP → Prometheus name translation. `countCalls`
-in `server/trpc/init.ts` counts `trpc.requests{outcome}` for every call that reached a procedure.
+in `trpc/init.ts` counts `trpc.requests{outcome}` for every call that reached a procedure.
 
 ### Jobs
 
-`apps/next/src/server/jobs/catalog.ts` declares every job: `Jobs` (name → payload) and `policies`
+`packages/server/src/jobs/catalog.ts` declares every job: `Jobs` (name → payload) and `policies`
 (`retryLimit`, `timeoutSeconds`). `ctx.jobs` enqueues (pass `{ tx }` inside `ctx.db.transaction` to
 make the job commit with the write); `apps/worker/src/handlers.ts` must have a handler for every
 name or it does not compile. The worker wraps handlers in `loggedHandlers` (`job.<name>`) and
@@ -183,7 +191,7 @@ network tab.
 - **Secrets come from the environment; topology and behaviour come from code.** Adapter selection,
   vector dimensions and distance metric live in `runtime.ts`, not in env vars. Credentials are read
   at the composition root and passed down as data, so nothing below it touches `process.env`.
-- Table definitions in `apps/next/src/server/db/schema.ts` are human-authored; their types are not
+- Table definitions in `packages/db/src/schema.ts` are human-authored; their types are not
   (`$inferSelect`), so they cannot drift.
 - `bun test` does **not** typecheck. Type-level assertions need `@ts-expect-error` in a file that
   `bun run typecheck` sees.

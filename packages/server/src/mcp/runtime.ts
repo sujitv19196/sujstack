@@ -1,6 +1,6 @@
+import { GENERIC_ERROR_MESSAGE } from "@app/shared/config"
 import { createMcpHandler } from "@sujstack/mcp-adapters/trpc"
 import { z } from "zod"
-import { GENERIC_ERROR_MESSAGE } from "../../config"
 import { appRouter } from "../trpc/routers/_app"
 import { createContext } from "../trpc/runtime"
 

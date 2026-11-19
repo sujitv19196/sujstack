@@ -1,10 +1,10 @@
 "use client"
 
+import type { AppRouter } from "@app/server/trpc/routers/_app"
+import { routes } from "@app/shared/routes"
 import { type DefaultOptions, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createTRPCClient, httpBatchLink } from "@trpc/client"
 import { type ReactNode, useState } from "react"
-import { routes } from "../routes"
-import type { AppRouter } from "../server/trpc/routers/_app"
 import { queryDefaults } from "./config"
 import { TRPCProvider } from "./react"
 

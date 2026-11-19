@@ -1,10 +1,10 @@
 "use client"
 
+import { GENERIC_ERROR_MESSAGE } from "@app/shared/config"
 import { skipToken, useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { GENERIC_ERROR_MESSAGE } from "../../config"
 import { useTRPC } from "../../trpc/react"
 import { Row } from "./row"
 

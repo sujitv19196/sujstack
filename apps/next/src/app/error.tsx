@@ -1,9 +1,9 @@
 "use client"
 
+import { log } from "@app/server/obs"
+import { GENERIC_ERROR_MESSAGE } from "@app/shared/config"
 import { useEffect } from "react"
 import { Button } from "../components/ui/button"
-import { GENERIC_ERROR_MESSAGE } from "../config"
-import { log } from "../server/obs"
 
 export default function ErrorBoundary({
   error,

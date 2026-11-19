@@ -6,6 +6,7 @@
   "packageManager": "bun@1.4.0",
   "workspaces": [
     "apps/*",
+    "packages/*",
     "kit/ports/*",
     "kit/adapters/*"
   ],
@@ -19,13 +20,13 @@
     "check:fix": "biome check --write . && bun run --cwd kit check:fix",
     "format": "biome format --write . && bun run --cwd kit format",
     "test": "bun test",
-    "db:generate": "bun run --filter @sujstack/next db:generate",
-    "db:check": "bun run --filter @sujstack/next db:check",
-    "db:migrate": "bun run --filter @sujstack/next db:migrate",
-    "db:push": "bun run --filter @sujstack/next db:push",
-    "db:studio": "bun run --filter @sujstack/next db:studio",
-    "metrics:rules": "bun run --filter @sujstack/next metrics:rules",
-    "metrics:check": "bun run --filter @sujstack/next metrics:check",
+    "db:generate": "bun run --filter @app/db db:generate",
+    "db:check": "bun run --filter @app/db db:check",
+    "db:migrate": "bun run --filter @app/db db:migrate",
+    "db:push": "bun run --filter @app/db db:push",
+    "db:studio": "bun run --filter @app/db db:studio",
+    "metrics:rules": "bun run --filter @app/server metrics:rules",
+    "metrics:check": "bun run --filter @app/server metrics:check",
     "infra:fmt": "terraform -chdir=infra fmt -recursive",
     "infra:check": "terraform -chdir=infra fmt -check -recursive && terraform -chdir=infra init -backend=false -input=false >/dev/null && terraform -chdir=infra validate"
   },

@@ -1,9 +1,9 @@
+import { users } from "@app/db/schema"
+import { requestOrigin, routes } from "@app/shared/routes"
 import { defineNamespace, SchemaValidationError } from "@sujstack/db-core"
 import { TRPCError } from "@trpc/server"
 import { eq, sql, TransactionRollbackError } from "drizzle-orm"
 import { z } from "zod"
-import { requestOrigin, routes } from "../../../routes"
-import { users } from "../../db/schema"
 import { signDemo } from "../../webhooks/demo"
 import { publicProcedure, router } from "../init"
 
