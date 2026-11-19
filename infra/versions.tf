@@ -1,13 +1,6 @@
 terraform {
   required_version = ">= 1.10"
 
-  cloud {
-    organization = "sujitv19196"
-    workspaces {
-      name = "sujstack"
-    }
-  }
-
   required_providers {
     vercel = {
       source  = "vercel/vercel"

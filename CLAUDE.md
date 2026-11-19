@@ -85,7 +85,7 @@ Adapters**, with a physical boundary between code the kit owns and code the app 
 | `packages/shared` | `@app/shared`: code both the browser and the server run (`config`, `routes`). No dependencies. |
 | `apps/next` | The UI: pages, components, the React tRPC bindings, and route handlers that call `@app/server`. No server logic of its own. |
 | `apps/worker` | Long-running Bun + Express process on Render, off until `worker_enabled`: runs job handlers from pg-boss, serves `/health`. Runs from source, no build step. |
-| `infra/` | Terraform: the Vercel project, Neon project and branches, the Render worker, and every deployed env var. Planned on PR and applied on merge by `.github/workflows/infra.yml`, remotely in HCP Terraform. Never change these in a dashboard. A new env var the app reads must be added here too. |
+| `infra/` | Terraform: the Vercel project, Neon project and branches, the Render worker, and every deployed env var. Applied by hand with `terraform -chdir=infra apply`; local state until the app adds a backend. Never change these in a dashboard. A new env var the app reads must be added here too. |
 
 The `-core` packages hold interfaces only, and the arrow is **enforced by `package.json`**: they do
 not list an adapter package as a dependency, so code holding a port physically cannot reach a

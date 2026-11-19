@@ -4,6 +4,21 @@ Every template release, newest first. *Upgrade notes* say what an app must do wh
 release, beyond resolving conflicts; a release without them merges with no manual steps. See
 *Upgrading to a newer template release* in `AGENTS.md`.
 
+## 0.3.0
+
+The template no longer ships a deploy workflow or an HCP Terraform backend, both of which named
+the template author's accounts. `infra/` now runs from your machine with local state.
+
+- Removed `.github/workflows/infra.yml`.
+- Removed the `cloud` block from `infra/versions.tf`.
+- `github_repo` and `neon_org_id` in `infra/variables.tf` have no default.
+
+### Upgrade notes
+
+An app that already deploys through HCP Terraform and the workflow should keep both: on the
+conflict, keep the app's `cloud` block in `infra/versions.tf`, its `.github/workflows/infra.yml`
+(a modify/delete conflict: keep it with `git add`) and its `github_repo` / `neon_org_id` defaults.
+
 ## 0.2.0
 
 Server code moves out of the Next app into workspace packages, so the worker can run it too. A job

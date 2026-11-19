@@ -7,13 +7,11 @@ variable "name" {
 variable "github_repo" {
   description = "The repository Vercel deploys from, as owner/name."
   type        = string
-  default     = "sujitv19196/sujstack"
 }
 
 variable "neon_org_id" {
   description = "The Neon organization that owns the project (org-…)."
   type        = string
-  default     = "org-floral-boat-67774683"
 }
 
 variable "neon_region" {

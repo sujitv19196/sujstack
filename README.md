@@ -270,11 +270,13 @@ connect them. There are two separate loops:
 | Loop | Triggered by | Does |
 | --- | --- | --- |
 | App deploys | `git push` | Vercel builds `main` to production and every other branch to a preview. The build runs `db:migrate` first, against that environment's database. Render redeploys the worker when a push to `main` touches a path in its build filter. |
-| Infra changes | merging a PR that touches `infra/**` | `.github/workflows/infra.yml` runs `terraform plan` on the PR (posted as a comment) and `terraform apply` on merge. |
+| Infra changes | `terraform apply` in `infra/` | Creates or updates the projects and env vars. When an env var changes, it redeploys `main` through a deploy hook, since env vars only reach deployments built after they changed. |
 
-Plans and applies execute remotely in HCP Terraform, which holds the state and the provider tokens.
-GitHub holds only `TF_API_TOKEN`. When an apply changes an env var, it redeploys `main` through a
-deploy hook, since env vars only reach deployments built after they changed.
+The template runs Terraform from your machine and keeps state in a local, gitignored
+`infra/terraform.tfstate`. That is enough for one person; before anyone else applies, or before
+running it from CI, add a remote [backend](https://developer.hashicorp.com/terraform/language/backend)
+to `infra/versions.tf` (HCP Terraform, S3, GCS, …) and run `terraform -chdir=infra init
+-migrate-state`. Losing the state file means Terraform forgets what it created.
 
 ### Setting up a new deployment
 
@@ -284,15 +286,11 @@ none does. Never create the Vercel, Neon or Render project by hand: Terraform cr
 first apply, and a hand-made one would collide with it. Accounts and tokens you already have from another
 project can be reused.
 
-Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`) and the GitHub CLI (`gh`).
+Tools: the Terraform CLI (`brew install hashicorp/tap/terraform`).
 
-**1. Point the code at the new project.** In `infra/`, edit:
-
-- `versions.tf`: `organization` (your HCP Terraform organization) and the workspace `name` (unique
-  to this project).
-- `variables.tf`: `name` (what the Vercel, Neon and Render projects are called), `github_repo`
-  (`owner/name`), `neon_org_id` (from `npx neonctl orgs list`, after step 3) and `render_owner_id`
-  (after step 4).
+**1. Point the code at the new project.** In `infra/variables.tf`, set `name` (what the Vercel,
+Neon and Render projects are called), and give `github_repo` (`owner/name`), `neon_org_id` (from
+`npx neonctl orgs list`, after step 3) and `render_owner_id` (after step 4) a `default`.
 
 **2. Vercel** (UI only).
 
@@ -316,61 +314,35 @@ is project-scoped and cannot create projects, so the first apply fails with it.
 4. Copy the owner ID (`tea-…` or `usr-…`) from the dashboard URL into `render_owner_id` in
    `variables.tf`.
 
-**5. HCP Terraform.**
-
-1. Sign up at app.terraform.io (not the portal.cloud.hashicorp.com console) and create an
-   organization (UI only).
-2. Sign in the CLI, then create the workspace named in `versions.tf`:
-
-   ```bash
-   terraform login
-   terraform -chdir=infra init
-   ```
-
-3. Add the provider tokens (UI only): workspace → **Variables → Add variable**, category
-   **Environment variable**, `VERCEL_API_TOKEN`, `NEON_API_KEY` and `RENDER_API_KEY`, each marked
-   **Sensitive**.
-   Optional **Terraform variables** `sentry_dsn`, `otel_endpoint` and `otel_headers` (Sensitive)
-   turn on Sentry and metrics.
-4. Check that the tokens work. This runs a remote plan and creates nothing:
-
-   ```bash
-   terraform -chdir=infra plan
-   ```
-
-**6. Give CI a token.** Create one in **Organization settings → Teams → API token**, or **User
-settings → Tokens** if your plan has no team tokens (UI only), then store it; the command prompts
-for it, so it stays out of your shell history:
+**5. Provider tokens.** Terraform reads them from the environment of the shell that runs it:
 
 ```bash
-gh secret set TF_API_TOKEN --repo <owner>/<repo>
+export VERCEL_API_TOKEN=… NEON_API_KEY=… RENDER_API_KEY=…
 ```
 
-**7. First apply.** Push to `main`. The workflow applies, creates the Neon and Vercel projects
-and the env vars, and triggers the first production deployment, which runs the first migration:
+Optional Terraform variables go in `infra/terraform.tfvars`, which is gitignored: `sentry_dsn`,
+`otel_endpoint` and `otel_headers` turn on Sentry and metrics, and `worker_enabled = true` runs
+the worker.
+
+**6. First apply.** Push to `main` first, so Vercel has a commit to build, then apply. The apply
+creates the Neon and Vercel projects and the env vars, and triggers the first production
+deployment, which runs the first migration:
 
 ```bash
 git push origin main
-gh run watch
+terraform -chdir=infra init
+terraform -chdir=infra plan
+terraform -chdir=infra apply
 ```
 
-The worker is off by default. To run it, add the **Terraform variable** `worker_enabled` = `true`
-(HCL) in the HCP workspace and re-run the apply; then look for `worker.started` in the worker's logs
-in the Render dashboard:
+The worker is off by default. To run it, set `worker_enabled = true` in `infra/terraform.tfvars`
+and apply again; then look for `worker.started` in the worker's logs in the Render dashboard.
 
-```bash
-gh workflow run infra.yml --ref main
-```
+If an apply fails on a token, fix it and apply again; Terraform resumes from what it already
+created.
 
-If an apply fails on a token, fix the variable in the HCP workspace and re-run it; Terraform
-resumes from what it already created:
-
-```bash
-gh workflow run infra.yml --ref main
-```
-
-Change infrastructure by editing `infra/` in a PR, never in the Vercel, Neon or Render dashboards,
-or the next apply reverts it.
+Change infrastructure by editing `infra/` and applying, never in the Vercel, Neon or Render
+dashboards, or the next apply reverts it.
 
 ## Design decisions
 
@@ -390,7 +362,7 @@ one more thing it might call.
 **Apps are clones that merge template releases.** Most templates are one-shot: create-t3-app and
 TanStack's CLI scaffold an app and never touch it again, and TanStack copes by keeping the generated
 code thin and everything else in versioned packages. The kit is that half here, but the app layer
-(Terraform, CI, the composition roots, the worker) is thick enough that losing its fixes matters.
+(Terraform, the composition roots, the worker) is thick enough that losing its fixes matters.
 So the template has releases, and an app is a clone that keeps the template's history: a release
 merges with git's own three-way merge against a real common ancestor, which is what Copier and the
 React Native upgrade helper rebuild by hand. A GitHub fork would do the same but allows one per
@@ -447,12 +419,12 @@ pooler runs in transaction mode, so a transaction keeps its connection for its w
 prepared statements are already off. A Neon adapter would be a new kit export beside `./postgres`,
 not a replacement for it.
 
-**Infrastructure is Terraform, applied on merge.** Clicking through dashboards leaves nothing to
-review and nothing to rebuild from. HCP Terraform holds the state because CI runners are
-ephemeral and a local state file is one laptop away from Terraform forgetting what it created. It
-also runs the plans, so the provider tokens live in one place rather than in both GitHub secrets
-and a local `.env`. The Neon↔Vercel marketplace integration is deliberately not used: Terraform
-cannot install it, and everything it would set is declared in `infra/` instead.
+**Infrastructure is Terraform.** Clicking through dashboards leaves nothing to review and nothing
+to rebuild from. The template ships no backend and no CI for it, because both name an account
+that belongs to whoever deploys: local state gets one person running, and a team adds a remote
+backend and, if it wants plans on pull requests, a workflow against it. The Neon↔Vercel
+marketplace integration is deliberately not used: Terraform cannot install it, and everything it
+would set is declared in `infra/` instead.
 
 **One shared preview database.** Every preview deployment uses the `preview` Neon branch, forked
 from `main` when Terraform created it. That keeps previews off production data with nothing but

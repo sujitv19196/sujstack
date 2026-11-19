@@ -12,9 +12,10 @@ secret or a per-deployment URL, make it a constant in code instead.
 2. **Document it in `.env.example`**: which file reads it, what it is for, and what happens unset.
 3. **Declare it in Terraform**, or it never reaches a deployment:
    - A secret supplied by a person: a `variable` in `infra/variables.tf` with `sensitive = true` and
-     `default = null`, set in the HCP Terraform workspace as a Terraform variable.
+     `default = null`, set in the gitignored `infra/terraform.tfvars`.
    - A secret Terraform can generate: a `random_password` resource.
    - For the Next app, add it to `local.environment_variables` in `infra/vercel.tf` (optional ones
      go in `optional_variables`, which skips nulls). For the worker, add it to `local.worker_env` in
      `infra/render.tf`.
-4. `bun run infra:check`. On merge, the apply sets the variable and redeploys `main`.
+4. `bun run infra:check`. The next `terraform -chdir=infra apply` sets the variable and redeploys
+   `main`.

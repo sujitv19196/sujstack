@@ -66,9 +66,8 @@ Replace `<app>` and `<owner>` throughout.
    gh repo create <owner>/<app> --private --source . --remote origin --push
    ```
 
-4. Point the infrastructure at the new project: in `infra/versions.tf`, the HCP Terraform
-   `organization` and workspace `name`; in `infra/variables.tf`, `name` and `github_repo`. Then
-   follow *Setting up a new deployment* in `README.md` for the accounts and tokens. Leave the
+4. Point the infrastructure at the new project: in `infra/variables.tf`, `name`, `github_repo`,
+   `neon_org_id` and `render_owner_id`. Then follow *Setting up a new deployment* in `README.md` for the accounts and tokens. Leave the
    `sujstack` names elsewhere in the code alone: renaming them gains nothing and conflicts on every
    upgrade that touches those lines.
 
@@ -109,7 +108,7 @@ Files fall into four groups. Keeping to them is what makes upgrades merge cleanl
 | Group | Files | Rule |
 | --- | --- | --- |
 | **Kit** | `kit/` | Never edit as part of an app change. A fix there is a kit release: see *Kit* in `CLAUDE.md`. |
-| **Template-owned** | `.github/`, the template's `.claude/skills/`, `biome.json`, `tsconfig.base.json`, `bunfig.toml`, `packages/server/scripts/`, `apps/next/src/trpc/`, `apps/next/src/app/api/{trpc,mcp}/`, `apps/worker/src/{index,server}.ts`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md` | Do not edit in an app. If one needs to change, the change belongs in the template: make it there, release it, and merge the release. |
+| **Template-owned** | the template's `.claude/skills/`, `biome.json`, `tsconfig.base.json`, `bunfig.toml`, `packages/server/scripts/`, `apps/next/src/trpc/`, `apps/next/src/app/api/{trpc,mcp}/`, `apps/worker/src/{index,server}.ts`, `README.md`, `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md` | Do not edit in an app. If one needs to change, the change belongs in the template: make it there, release it, and merge the release. |
 | **Shared** | composition roots (`packages/server/src/**/runtime.ts`, `packages/server/src/obs.ts`), `packages/server/src/trpc/{init,context}.ts`, the catalogs, `next.config.ts`, the `package.json` files, `.env.example`, `infra/` | The template ships these and the app extends them. Add to them; avoid rewriting the template's lines. |
 | **App-owned** | `packages/db/src/schema.ts`, `packages/db/migrations/`, `packages/server/src/trpc/routers/` (except `health.ts`), and anything the app adds to `packages/`; `apps/next/src/app/` pages, `apps/next/src/components/` | The template does not change these after the demo is removed. |
 
@@ -117,7 +116,7 @@ Two rules decide where a change goes:
 
 - **Kit first.** Anything every app built on this template would want — a fix to a port or
   adapter, a new adapter — goes into the kit, and reaches every app as a submodule bump.
-- **Template second.** A fix to template-owned glue (CI, the tRPC plumbing, Terraform shape) goes into
+- **Template second.** A fix to template-owned glue (the tRPC plumbing, Terraform shape) goes into
   the template as a release, so every app can merge it. Fixing it only in one app means it will
   conflict on the next upgrade.
 
@@ -126,8 +125,8 @@ conflicts with an upgrade.
 
 ## Upgrading to a newer template release
 
-Upgrade on a branch with a pull request, so `.github/workflows/infra.yml` posts the Terraform plan
-before anything is applied.
+Upgrade on a branch, and review `terraform -chdir=infra plan` before applying anything a release
+changed in `infra/`.
 
 1. See where the app is and what is available:
 
@@ -163,6 +162,6 @@ before anything is applied.
    `bun run typecheck && bun test && bun run check && bun run build && bun run metrics:check && bun run db:check`
    (and `bun run infra:check` if `infra/` changed).
 
-6. Commit the merge, open the pull request, and review the Terraform plan before merging.
+6. Commit the merge and, if `infra/` changed, review `terraform -chdir=infra plan` before applying.
 
 Never merge `template/main`: only release tags have upgrade notes, and only they pin a kit release.
