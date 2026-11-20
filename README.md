@@ -1,5 +1,7 @@
 # sujstack
 
+[![CI](https://github.com/sujitv19196/sujstack/actions/workflows/ci.yml/badge.svg)](https://github.com/sujitv19196/sujstack/actions/workflows/ci.yml)
+
 Bun · Next 16 · React 19 · TypeScript 7 · Drizzle · tRPC v11 · Tailwind v4 · Biome
 
 A template with a deliberately **provider-agnostic data layer**. Drizzle is the relational
@@ -15,13 +17,19 @@ for people and agents alike, are in [AGENTS.md](AGENTS.md); what each release ch
 
 ## Quick start
 
+Needs [Bun](https://bun.sh) 1.4 or later. Nothing else is required to run it locally; the
+[Terraform CLI](https://developer.hashicorp.com/terraform/install) is only for deploying.
+
 ```bash
-git clone --recurse-submodules git@github.com:sujitv19196/sujstack.git
+git clone --recurse-submodules https://github.com/sujitv19196/sujstack.git
+cd sujstack
 bun install
 bun run dev          # http://localhost:3000
 ```
 
-In an existing clone, `git submodule update --init` fetches `kit/`.
+In an existing clone, `git submodule update --init` fetches `kit/`. To start a real app from the
+template rather than try it out, follow *Starting a new app* in [AGENTS.md](AGENTS.md) instead:
+an app keeps the template's history so it can merge later releases.
 
 | Script | Does |
 | --- | --- |
@@ -420,9 +428,9 @@ prepared statements are already off. A Neon adapter would be a new kit export be
 not a replacement for it.
 
 **Infrastructure is Terraform.** Clicking through dashboards leaves nothing to review and nothing
-to rebuild from. The template ships no backend and no CI for it, because both name an account
-that belongs to whoever deploys: local state gets one person running, and a team adds a remote
-backend and, if it wants plans on pull requests, a workflow against it. The Neon↔Vercel
+to rebuild from. The template ships no backend and no plan/apply workflow for it, because both
+name an account that belongs to whoever deploys: local state gets one person running, and a team
+adds a remote backend and, if it wants plans on pull requests, a workflow against it. The Neon↔Vercel
 marketplace integration is deliberately not used: Terraform cannot install it, and everything it
 would set is declared in `infra/` instead.
 
@@ -483,3 +491,14 @@ drift from the definitions. `db:generate` turns definitions into SQL and `db:che
 
 **Comments say what non-obvious code does.** They do not argue for design decisions or explain
 concepts an implementer already knows — that material belongs in this file.
+
+## Contributing
+
+The repository is public to read, but it does not take outside pull requests. Issues are welcome,
+and [SECURITY.md](SECURITY.md) says how to report a vulnerability privately. CI
+(`.github/workflows/ci.yml`) runs the typecheck, tests, Biome, the drift checks and the build on
+every push to `main`.
+
+## License
+
+Copyright © 2026 sujitv19196. All rights reserved.

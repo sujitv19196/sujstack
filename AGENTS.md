@@ -44,7 +44,7 @@ Replace `<app>` and `<owner>` throughout.
    namespaced under `template/` so they never collide with the app's own tags:
 
    ```sh
-   git clone --no-tags git@github.com:sujitv19196/sujstack.git <app>
+   git clone --no-tags https://github.com/sujitv19196/sujstack.git <app>
    cd <app>
    git remote rename origin template
    git config remote.template.tagOpt --no-tags

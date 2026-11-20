@@ -4,6 +4,15 @@ Every template release, newest first. *Upgrade notes* say what an app must do wh
 release, beyond resolving conflicts; a release without them merges with no manual steps. See
 *Upgrading to a newer template release* in `AGENTS.md`.
 
+## Unreleased
+
+The repository is public, and CI runs on every pull request and push to `main`.
+
+- Added `.github/workflows/ci.yml`: typecheck, tests, Biome, `db:check`, `metrics:check`,
+  `infra:check` and the build, on every pull request and push to `main`.
+- Added `SECURITY.md` and a Dependabot config for the workflow's actions.
+- Clone URLs in `README.md` and `AGENTS.md` are HTTPS, so they work without a GitHub SSH key.
+
 ## 0.3.0
 
 The template no longer ships a deploy workflow or an HCP Terraform backend, both of which named
