@@ -440,7 +440,8 @@ Terraform. A branch per pull request would isolate previews from each other, but
 create, wire and delete branches on PR events; add it when two open PRs start fighting over a
 schema.
 
-**Migrations run in the Vercel build.** `bun run db:migrate && bun run build` means a deploy cannot
+**Migrations run in the Vercel build.** `bun run --filter @app/db db:migrate && bun run build` (the
+build runs in `apps/next`, which has no `db:migrate` script of its own) means a deploy cannot
 go live against a schema it has not migrated. drizzle-kit reads `DATABASE_URL_UNPOOLED` first, so
 migrations bypass the transaction-mode pooler. Migrations must therefore be backwards compatible
 with the deployment still serving traffic, and a preview build migrates the shared preview branch.

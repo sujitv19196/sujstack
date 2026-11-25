@@ -2,7 +2,7 @@ resource "vercel_project" "app" {
   name           = var.name
   framework      = "nextjs"
   root_directory = "apps/next"
-  build_command  = "bun run db:migrate && bun run build"
+  build_command  = "bun run --filter @app/db db:migrate && bun run build"
 
   git_repository = {
     type              = "github"

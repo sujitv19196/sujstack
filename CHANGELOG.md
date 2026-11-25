@@ -12,6 +12,13 @@ The repository is public, and CI runs on every pull request and push to `main`.
   `infra:check` and the build, on every pull request and push to `main`.
 - Added `SECURITY.md` and a Dependabot config for the workflow's actions.
 - Clone URLs in `README.md` and `AGENTS.md` are HTTPS, so they work without a GitHub SSH key.
+- Fixed the Vercel build command: it ran `bun run db:migrate` in `apps/next`, which has no such
+  script, so every deployment failed with `Script not found "db:migrate"`. It now runs
+  `bun run --filter @app/db db:migrate`.
+
+### Upgrade notes
+
+- Run `terraform -chdir=infra apply` to update the Vercel project's build command, then redeploy.
 
 ## 0.3.0
 
